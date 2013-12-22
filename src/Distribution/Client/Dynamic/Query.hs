@@ -162,5 +162,5 @@ runQuery (Query s post) setupConfig = do
         target <- GHC.guessTarget "DynamicCabalQuery.hs" Nothing
         GHC.setTargets [target]
         void $ GHC.load GHC.LoadAllTargets
-        GHC.setContext [GHC.IIModule $ GHC.mkModuleName "DynamicCabalQuery"]
+        GHC.setContext [GHC.IIDecl $ GHC.simpleImportDecl $ GHC.mkModuleName "DynamicCabalQuery"]
         GHC.dynCompileExpr "result" >>= maybe (fail "dynamic-cabal: runQuery: Result expression has wrong type") (MonadUtils.liftIO . fmap post) . fromDynamic
