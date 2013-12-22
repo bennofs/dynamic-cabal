@@ -40,11 +40,23 @@ library
     , haskell-src-exts
     , void
   exposed-modules:
-      Distribution.Cabal.Dynamic
-      Distribution.Cabal.Dynamic.Query
-      Distribution.Cabal.Dynamic.LocalBuildInfo
-      Distribution.Cabal.Dynamic.ConfigFlags
-      Distribution.Cabal.Dynamic.PackageDescription
+      Distribution.Client.Dynamic
+      Distribution.Client.Dynamic.Query
+      Distribution.Client.Dynamic.LocalBuildInfo
+      Distribution.Client.Dynamic.PackageDescription
+
+test-suite dynamic-cabal-tests
+  type:    exitcode-stdio-1.0
+  main-is: Main.hs
+  hs-source-dirs: tests
+  build-depends:
+      base
+    , dynamic-cabal
+    , tasty
+    , tasty-hunit
+    , HUnit
+    , tasty-th
+  ghc-options: -Wall
 
 test-suite doctests
   type:    exitcode-stdio-1.0

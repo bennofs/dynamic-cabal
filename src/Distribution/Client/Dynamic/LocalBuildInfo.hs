@@ -1,6 +1,5 @@
 module Distribution.Client.Dynamic.LocalBuildInfo where
 
-import Distribution.Client.Dynamic.ConfigFlags
 import Distribution.Client.Dynamic.PackageDescription
 import Distribution.Client.Dynamic.Query
 import Language.Haskell.Exts.Syntax
@@ -8,9 +7,6 @@ import Language.Haskell.Generate
 import Prelude hiding ((.), id)
 
 data PackageDB = UserDB | GlobalDB | SpecificDB FilePath deriving (Eq, Ord, Show, Read)
-
-configFlags :: Selector LocalBuildInfo ConfigFlags
-configFlags = selector $ const $ useValue "Distribution.Simple.LocalBuildInfo" $ Ident "configFlags"
 
 extraConfigArgs :: Selector LocalBuildInfo [String]
 extraConfigArgs = selector $ const $ useValue "Distribution.Simple.LocalBuildInfo" $ Ident "extraConfigArgs"
