@@ -7,11 +7,11 @@ import Test.Tasty.TH
 case_targets :: Assertion
 case_targets = do
   tgs <- runQuery (on localPkgDesc targets) "dist/setup-config"
-  assertBool "target names match" $ map name tgs == [Library, TestSuite "dynamic-cabal-tests", TestSuite "doctests"]
-  assertBool "source directories match" $ map sourceDirs tgs == map return ["src", "tests", "tests"]
-  assertBool "ghc options match"        $ map ghcOptions (take 2 tgs) == [["-Wall"], ["-Wall"]]
-  assertBool "extensions match"         $ all (null . extensions) tgs
-  assertBool "everything buildable"     $ all buildable tgs
+  assertEqual "target names" (map name tgs) [Library, TestSuite "dynamic-cabal-tests", TestSuite "doctests"]
+  assertEqual "source directories" (map sourceDirs tgs) $ map return ["src", "tests", "tests"]
+  assertEqual "ghc options" (map ghcOptions $ take 2 tgs) [["-Wall"], ["-Wall"]]
+  assertBool "no extensions" $ all (null . extensions) tgs
+  assertBool  "everything buildable" $ all buildable tgs
 
 case_packageDBs :: Assertion
 case_packageDBs = do

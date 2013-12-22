@@ -21,7 +21,7 @@ module Distribution.Client.Dynamic.Query
 
 import           Control.Applicative
 import           Control.Category
-import           Control.Exception
+import qualified Control.Exception as E
 import           Control.Monad
 import           Data.Dynamic
 import           Data.Version
@@ -103,10 +103,10 @@ getRunDirectory = getTemporaryDirectory >>= go 0
   where go :: Integer -> FilePath -> IO FilePath
         go !c dir = do 
           let cdir = dir </> "dynamic-cabal" <.> show c
-          res <- try $ createDirectory cdir
+          res <- E.try $ createDirectory cdir
           case res of
             Left e | isAlreadyExistsError e -> go (c + 1) dir
-                   | otherwise -> throwIO e
+                   | otherwise -> E.throwIO e
             Right () -> return cdir
 
 getCabalVersion :: FilePath -> IO Version
@@ -114,21 +114,21 @@ getCabalVersion setupConfig = do
   versionString <- dropWhile (not . flip elem ['0'..'9']) . (!! 7) . words . head . lines <$> readFile setupConfig
   case filter (null . snd) $ readP_to_S parseVersion versionString of
     [(v,_)] -> return v
-    _       -> throwIO $ userError "Couldn't parse version"
+    _       -> E.throwIO $ userError "Couldn't parse version"
 
 data LeftoverTempDir e = LeftoverTempDir FilePath e deriving Typeable
 
 instance Show e => Show (LeftoverTempDir e) where
   show (LeftoverTempDir dir e) = "Left over temporary directory not removed: " ++ dir ++ "\n" ++ show e
 
-instance Exception e => Exception (LeftoverTempDir e)
+instance E.Exception e => E.Exception (LeftoverTempDir e)
 
 withTempWorkingDir :: IO a -> IO a
 withTempWorkingDir act = do
   pwd <- getCurrentDirectory
   tmp <- getRunDirectory
   setCurrentDirectory tmp
-  res <- act `catch` \(SomeException e) -> setCurrentDirectory pwd >> throwIO (LeftoverTempDir tmp e)
+  res <- act `E.catch` \(E.SomeException e) -> setCurrentDirectory pwd >> E.throwIO (LeftoverTempDir tmp e)
   setCurrentDirectory pwd
   res <$ removeDirectoryRecursive tmp
 
