@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
+import Data.List
 import Distribution.Client.Dynamic
 import Test.HUnit
 import Test.Tasty.HUnit
@@ -7,9 +8,9 @@ import Test.Tasty.TH
 case_targets :: Assertion
 case_targets = do
   tgs <- runQuery (on localPkgDesc targets) "dist/setup-config"
-  assertEqual "target names" (map name tgs) [Library, TestSuite "dynamic-cabal-tests", TestSuite "doctests"]
-  assertEqual "source directories" (map sourceDirs tgs) $ map return ["src", "tests", "tests"]
-  assertEqual "ghc options" (map ghcOptions $ take 2 tgs) [["-Wall"], ["-Wall"]]
+  assertEqual "target names" (sort [Library, TestSuite "dynamic-cabal-tests", TestSuite "doctests"]) (sort $ map name tgs) 
+  assertEqual "source directories" (sort $ map sourceDirs tgs) $ sort $ map return ["src", "tests", "tests"]
+  assertBool "ghc options" $ all (elem "-Wall" . ghcOptions)  tgs
   assertBool "no extensions" $ all (null . extensions) tgs
   assertBool  "everything buildable" $ all buildable tgs
 
