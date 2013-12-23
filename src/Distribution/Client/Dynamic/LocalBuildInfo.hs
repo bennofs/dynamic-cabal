@@ -6,11 +6,11 @@ import Language.Haskell.Exts.Syntax
 import Language.Haskell.Generate
 import Prelude hiding ((.), id)
 
+-- | A package db is either the user package db (often at ~/.ghc/ghc-....), the global package
+-- or a specific file or directory.
 data PackageDB = UserDB | GlobalDB | SpecificDB FilePath deriving (Eq, Ord, Show, Read)
 
-extraConfigArgs :: Selector LocalBuildInfo [String]
-extraConfigArgs = selector $ const $ useValue "Distribution.Simple.LocalBuildInfo" $ Ident "extraConfigArgs"
-
+-- | Get the package dbs that ghc will use when compiling this package.
 packageDBs :: Query LocalBuildInfo [PackageDB]
 packageDBs = fmap (map deserialize) $ query packageDBStack
   where packageDBStack' :: ExpG (LocalBuildInfo -> [PackageDB])
@@ -36,8 +36,10 @@ packageDBs = fmap (map deserialize) $ query packageDBStack
         deserialize (Right file) = SpecificDB file
 
 
+-- | Returns the builddir of a LocalBuildInfo. Often, this will just be "dist".
 buildDir :: Selector LocalBuildInfo String
 buildDir = selector $ const $ useValue "Distribution.Simple.LocalBuildInfo" $ Ident "buildDir"
 
+-- | Returns the package description included in a local build info.
 localPkgDesc :: Selector LocalBuildInfo PackageDescription
 localPkgDesc = selector $ const $ useValue "Distribution.Simple.LocalBuildInfo" $ Ident "localPkgDescr"

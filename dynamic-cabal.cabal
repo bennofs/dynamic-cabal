@@ -1,6 +1,7 @@
 name:          dynamic-cabal
 version:       0.1
 license:       BSD3
+category:      Distribution 
 cabal-version: >= 1.10
 license-file:  LICENSE
 author:        Benno Fünfstück

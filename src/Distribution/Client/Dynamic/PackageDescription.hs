@@ -15,6 +15,9 @@ import Language.Haskell.Generate
 
 -- Type tags that we can use to make sure we don't accidently generate code that
 -- use a function for a PackageDescription on a BuildInfo value.
+
+-- | A package description type. This type has no constructors, and is only used 
+-- for type-safety purposes.
 data PackageDescription
 data BuildInfo
 data CompilerFlavor
