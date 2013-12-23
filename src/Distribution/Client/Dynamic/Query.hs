@@ -8,6 +8,7 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 #if __GLASGOW_HASKELL__ >= 707
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE KindSignatures #-}
 #endif
 
 -- | Functions for building queries on cabal's setup-config an evaluating them.
@@ -43,7 +44,7 @@ import           System.IO.Error (isAlreadyExistsError)
 import           Text.ParserCombinators.ReadP
 
 #if __GLASGOW_HASKELL__ >= 707
-type Typeable1 = Typeable
+type Typeable1 (f :: * -> *) = Typeable f
 #endif 
 
 -- | This is just a dummy type representing a LocalBuildInfo. You don't have to use
