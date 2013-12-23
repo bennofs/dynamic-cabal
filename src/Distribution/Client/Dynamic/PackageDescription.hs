@@ -118,7 +118,7 @@ buildInfoTarget = (\d src inc opts exts ba n -> Target n d src inc opts exts ba)
 -- | Get the buildInfo of the library in the package. If there is no library in the package, 
 -- return the empty list.
 library' :: ExpG (PackageDescription -> [BuildInfo])
-library' = applyE2 maybe' (return $ List []) serialize' <>. useValue "Distribution.PackageDescription" (Ident "library")
+library' = applyE2 maybe' (returnE $ List []) serialize' <>. useValue "Distribution.PackageDescription" (Ident "library")
   where serialize' = expr $ \lib -> expr [applyE buildInfo' lib]
         buildInfo' = useValue "Distribution.PackageDescription" $ Ident "libBuildInfo"
 
