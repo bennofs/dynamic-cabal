@@ -6,7 +6,7 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE DeriveDataTypeable #-}
-#if __GLASGLOW_HASKELL__ >= 707
+#if __GLASGOW_HASKELL__ >= 707
 {-# LANGUAGE ConstraintKinds #-}
 #endif
 
@@ -42,7 +42,7 @@ import           System.FilePath
 import           System.IO.Error (isAlreadyExistsError)
 import           Text.ParserCombinators.ReadP
 
-#if __GLASGLOW_HASKELL >= 707
+#if __GLASGOW_HASKELL__ >= 707
 type Typeable1 = Typeable
 #endif 
 
