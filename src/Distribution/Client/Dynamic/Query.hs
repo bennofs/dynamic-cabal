@@ -23,6 +23,7 @@ module Distribution.Client.Dynamic.Query
   , on
   , runQuery
   , runRawQuery
+  , getCabalVersion
   ) where
 
 import           Control.Applicative
