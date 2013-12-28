@@ -5,6 +5,7 @@ module Distribution.Client.Dynamic.PackageDescription
   , TargetName(..)
   , PackageDescription()
   , targets
+  , targetName, isLibrary, isExecutable, isTest, isBench
   ) where
 
 import Control.Applicative
@@ -70,6 +71,39 @@ data Target = Target
   
 
   } deriving (Show, Eq, Read)
+
+
+-- | return the target name, or the empty string for the library target
+targetName :: Target -> String
+targetName t=case name t of
+  (Library _)->""
+  (Executable n _)->n
+  (TestSuite n _)->n
+  (BenchSuite n)->n
+
+-- | is the target the library?
+isLibrary :: Target -> Bool
+isLibrary t=case name t of
+  (Library _)->True
+  _->False
+
+-- | is the target an executable?
+isExecutable :: Target -> Bool
+isExecutable t=case name t of
+  (Executable _ _)->True
+  _->False
+
+-- | is the target a test suite?
+isTest :: Target -> Bool
+isTest t=case name t of
+  (TestSuite _ _)->True
+  _->False
+
+-- | is the target a benchmark?
+isBench :: Target -> Bool
+isBench t=case name t of
+  (BenchSuite _)->True
+  _->False
 
 buildable' :: Selector BuildInfo Bool
 buildable' = selector $ const $ useValue "Distribution.PackageDescription" $ Ident "buildable"
