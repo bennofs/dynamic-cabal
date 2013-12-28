@@ -22,6 +22,7 @@ module Distribution.Client.Dynamic.Query
   , fmapQ
   , on
   , runQuery
+  , runRawQuery
   ) where
 
 import           Control.Applicative
@@ -140,9 +141,9 @@ withTempWorkingDir act = do
   setCurrentDirectory pwd
   res <$ removeDirectoryRecursive tmp
 
-generateSource :: Selector LocalBuildInfo o -> String -> FilePath -> Version -> IO ()
+generateSource :: Selector LocalBuildInfo o -> String -> FilePath -> Version -> IO (String)
 generateSource (Selector s) modName setupConfig version = 
-  writeFile (modName <.> "hs") $ flip generateModule modName $ do
+  return $ flip generateModule modName $ do
     getLBI <- addDecl (Ident "getLBI") $ 
                    applyE fmap' (read' <>. unlines' <>. applyE drop' 1 <>. lines' :: ExpG (String -> LocalBuildInfo)) 
                <>$ applyE readFile' (expr setupConfig)
@@ -153,10 +154,23 @@ generateSource (Selector s) modName setupConfig version =
 runQuery :: Query LocalBuildInfo a -> FilePath -> IO a
 runQuery (Query s post) setupConfig = do
   setupConfig' <- canonicalizePath setupConfig
+  version <- getCabalVersion setupConfig'
+  src<-  generateSource s "DynamicCabalQuery" setupConfig' version
+  runRawQuery' src setupConfig post
+  
+-- | run a raw query, getting the full source from the first parameter
+-- the module must be DynamicCabalQuery and it must have a result declaration
+runRawQuery :: (Typeable a)=>String -> FilePath -> IO a
+runRawQuery s setupConfig = runRawQuery' s setupConfig id
+  
+-- | run a raw query, getting the full source from the first parameter
+-- the module must be DynamicCabalQuery and it must have a result declaration
+runRawQuery' :: (Typeable i)=>String -> FilePath -> (i->a)-> IO a
+runRawQuery' s setupConfig post= do
+  setupConfig' <- canonicalizePath setupConfig
   withTempWorkingDir $ do
     version <- getCabalVersion setupConfig'
-    generateSource s "DynamicCabalQuery" setupConfig' version
-
+    writeFile "DynamicCabalQuery.hs" s
     GHC.runGhc (Just GHC.Paths.libdir) $ do
       dflags <- GHC.getSessionDynFlags
       void $ GHC.setSessionDynFlags $ dflags
@@ -172,3 +186,4 @@ runQuery (Query s post) setupConfig = do
         void $ GHC.load GHC.LoadAllTargets
         GHC.setContext [GHC.IIDecl $ GHC.simpleImportDecl $ GHC.mkModuleName "DynamicCabalQuery"]
         GHC.dynCompileExpr "result" >>= maybe (fail "dynamic-cabal: runQuery: Result expression has wrong type") (MonadUtils.liftIO . fmap post) . fromDynamic
+        
