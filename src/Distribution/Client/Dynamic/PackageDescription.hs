@@ -142,7 +142,7 @@ cppOptions' = selector $ const options'
   where options' :: ExpG (BuildInfo -> [String])
         options' = useValue "Distribution.PackageDescription" $ Ident "cppOptions"
 
--- | Get the options to pass to GHC for a given BuildInfo.
+-- | Get the non exposed modules.
 otherModules' :: Selector BuildInfo [String]
 otherModules' = selector $ const $ applyE map' display'  <>. mods'
   where 
@@ -184,7 +184,7 @@ buildInfoTarget = (\d src inc opts copts exts ba oths n-> Target n d src inc opt
                  <*> query buildable'
                  <*> query otherModules'
 
--- | Get the buildInfo of the library in the package, and its exposed mdoules. If there is no library in the package, 
+-- | Get the buildInfo of the library in the package, and its exposed modules. If there is no library in the package, 
 -- return the empty list.
 library' :: ExpG (PackageDescription -> [([String],BuildInfo)])
 library' = applyE2 maybe' (returnE $ List []) serialize' <>. useValue "Distribution.PackageDescription" (Ident "library")
