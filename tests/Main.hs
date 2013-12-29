@@ -6,6 +6,7 @@ import Test.Tasty.HUnit
 import Test.Tasty.TH
 import qualified Data.Map as DM
 import           System.Directory
+import Data.Version
 
 case_targets :: Assertion
 case_targets = do
@@ -36,6 +37,10 @@ case_raw = do
 src :: IO String
 src=do
   setupConfig' <- canonicalizePath "dist/setup-config"
+  cv<-getCabalVersion setupConfig'
+  let optStr=if cv>=Version [1,15,0] []
+               then "       let opts=renderGhcOptions ((fst $ head $ readP_to_S  parseVersion  \"7.6.3\") :: Version) $ componentGhcOptions V.silent lbi b clbi \"dist/build\""
+               else "       let opts=ghcOptions lbi b clbi fp"
   return $ unlines [
     "module DynamicCabalQuery where"
     ,"import Distribution.PackageDescription"
@@ -45,7 +50,7 @@ src=do
     ,"import qualified Distribution.Verbosity as V"
     ,"import Data.Version (parseVersion)"
     ,"import Text.ParserCombinators.ReadP(readP_to_S)"
-    ,"import Distribution.Simple.Program.GHC"
+    ,if cv>=Version [1,15,0] [] then "import Distribution.Simple.Program.GHC" else ""
     ,"import Distribution.Simple.GHC"
     ,"import Distribution.Version"
     ,"import Control.Monad"
@@ -57,7 +62,7 @@ src=do
     ,"r<-newIORef DM.empty"
     ,"withComponentsLBI pkg lbi (\\c clbi->do"
     ,"       let b=componentBuildInfo c"
-    ,"       let opts=renderGhcOptions ((fst $ head $ readP_to_S  parseVersion  \"7.6.3\") :: Version) $ componentGhcOptions V.silent lbi b clbi \"dist/build\"" 
+    ,optStr 
     ,"       let n=foldComponent (const \"\") exeName testName benchmarkName c"
     ,"       modifyIORef r (DM.insert n opts)"
     ,"       return ()"
