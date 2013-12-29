@@ -2,7 +2,7 @@
 -- to extract all targets along with their dependencies.
 module Distribution.Client.Dynamic.PackageDescription
   ( Target(..)
-  , TargetName(..)
+  , TargetInfo(..)
   , PackageDescription()
   , targets
   , targetName, isLibrary, isExecutable, isTest, isBench
@@ -27,17 +27,18 @@ data Dependency
 data ModuleName
 instance Eq CompilerFlavor where _ == _ = undefined
 
--- | The name of a target. Libraries don't have a name, they are always named after the package.
-data TargetName = Library [String] -- ^ contains the names of exposed modules
-  | Executable String FilePath -- ^ the path to the Main module
-  | TestSuite String (Maybe FilePath) -- ^ the path to the Main module, for stdio tests
-  | BenchSuite String 
+-- | The specific information on a target, depending on the target type.
+-- Libraries don't have a name, they are always named after the package, but other types do
+data TargetInfo = Library [String] -- ^ contains the names of exposed modules
+  | Executable String FilePath -- ^ contains the name of the executable and the path to the Main module
+  | TestSuite String (Maybe FilePath) -- ^ contains the name of the test suite and the path to the Main module, for stdio tests
+  | BenchSuite String  -- ^ contains the name of the benchmark
   deriving (Show, Eq, Read, Ord)
 
 -- | A target is a single Library, an Executable, a TestSuite or a Benchmark.
 data Target = Target
-  { -- | The name of the target
-    name         :: TargetName
+  { -- | The specific info of the target
+    info         :: TargetInfo
 
     -- | All dependencies of the target, with their versions. If the version is not resolved yet, it'll be Nothing. 
     -- That only happens when the target is not enabled, though.
@@ -75,7 +76,7 @@ data Target = Target
 
 -- | return the target name, or the empty string for the library target
 targetName :: Target -> String
-targetName t=case name t of
+targetName t=case info t of
   (Library _)->""
   (Executable n _)->n
   (TestSuite n _)->n
@@ -83,25 +84,25 @@ targetName t=case name t of
 
 -- | is the target the library?
 isLibrary :: Target -> Bool
-isLibrary t=case name t of
+isLibrary t=case info t of
   (Library _)->True
   _->False
 
 -- | is the target an executable?
 isExecutable :: Target -> Bool
-isExecutable t=case name t of
+isExecutable t=case info t of
   (Executable _ _)->True
   _->False
 
 -- | is the target a test suite?
 isTest :: Target -> Bool
-isTest t=case name t of
+isTest t=case info t of
   (TestSuite _ _)->True
   _->False
 
 -- | is the target a benchmark?
 isBench :: Target -> Bool
-isBench t=case name t of
+isBench t=case info t of
   (BenchSuite _)->True
   _->False
 
@@ -173,7 +174,7 @@ dependencies' = selector $ const $ applyE map' serializeDep <>. targetBuildDepen
         targetBuildDepends' = useValue "Distribution.PackageDescription" $ Ident "targetBuildDepends"
 
 -- | Construct a 'Target' from a buildInfo, a targetName and a Bool that is True if the target is enabled, false otherwise.
-buildInfoTarget :: Query BuildInfo (TargetName -> Bool -> Target)
+buildInfoTarget :: Query BuildInfo (TargetInfo -> Bool -> Target)
 buildInfoTarget = (\d src inc opts copts exts ba oths n-> Target n d src inc opts copts exts ba oths)
                  <$> query dependencies' 
                  <*> query hsSourceDirs' 
@@ -236,7 +237,7 @@ benchmarks' = applyE map' serialize' <>. useValue "Distribution.PackageDescripti
 -- | Get the name of all targets and whether they are enabled (second field True) or not. 
 -- The resulting list is in the same order and has the same length as the list returned
 -- by buildInfos.
-targetInfos :: Query PackageDescription [(TargetName, Bool)]
+targetInfos :: Query PackageDescription [(TargetInfo, Bool)]
 targetInfos = build <$> query libMods <*> query exeNames <*> query testInfo <*> query benchInfo
   where libMods :: Selector PackageDescription [[String]]
         libMods =  selector $ const $ applyE map' fst' <>. library'

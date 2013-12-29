@@ -13,7 +13,7 @@ case_targets = do
   assertEqual "target names" (sort [Library ["Distribution.Client.Dynamic"
       ,"Distribution.Client.Dynamic.Query"
       ,"Distribution.Client.Dynamic.LocalBuildInfo"
-      ,"Distribution.Client.Dynamic.PackageDescription"], TestSuite "dynamic-cabal-tests" (Just "Main.hs"), TestSuite "doctests" (Just "doctests.hs")]) (sort $ map name tgs) 
+      ,"Distribution.Client.Dynamic.PackageDescription"], TestSuite "dynamic-cabal-tests" (Just "Main.hs"), TestSuite "doctests" (Just "doctests.hs")]) (sort $ map info tgs) 
   assertEqual "source directories" (sort $ map sourceDirs tgs) $ sort $ map return ["src", "tests", "tests"]
   assertBool "ghc options" $ all (elem "-Wall" . ghcOptions)  tgs
   assertBool "no extensions" $ all (null . extensions) tgs
