@@ -29,9 +29,9 @@ instance Eq CompilerFlavor where _ == _ = undefined
 
 -- | The specific information on a target, depending on the target type.
 -- Libraries don't have a name, they are always named after the package, but other types do
-data TargetInfo = Library [String] -- ^ contains the names of exposed modules
-  | Executable String FilePath -- ^ contains the name of the executable and the path to the Main module
-  | TestSuite String (Maybe FilePath) -- ^ contains the name of the test suite and the path to the Main module, for stdio tests
+data TargetInfo = Library [String]     -- ^ contains the names of exposed modules
+  | Executable String FilePath         -- ^ contains the name of the executable and the path to the Main module
+  | TestSuite String (Maybe FilePath)  -- ^ contains the name of the test suite and the path to the Main module, for stdio tests
   | BenchSuite String (Maybe FilePath) -- ^ contains the name of the benchmark and the path to the Main module, for stdio benchmarks
   deriving (Show, Eq, Read, Ord)
 
@@ -70,7 +70,6 @@ data Target = Target
     -- | Whether this target was enabled or not. This only matters for Benchmarks or Tests, Executables and Libraries are always enabled.
   , enabled      :: Bool
   
-
   } deriving (Show, Eq, Read)
 
 
@@ -203,44 +202,42 @@ executables'= applyE map' serialize' <>. useValue "Distribution.PackageDescripti
         modulePath'= useValue "Distribution.PackageDescription" $ Ident "modulePath"
         buildInfo' = useValue "Distribution.PackageDescription" $ Ident "buildInfo"
 
+-- | Get the filepath of a exit-code-stdio interface (for test cases or benchmarks)
+-- The first argument specifies the constructor which contains the interface data. 
+-- For test suites, this should be TestSuiteExeV10, for benchmarks, it should be BenchmarkExeV10.
+-- 
+-- Note: This function is not entirely typesafe, because the argument type of the returned function
+-- is polymorphic. You have to make sure that the type has the given constructor.
+exitCodeStdioPath' :: String -> ExpG (a -> Maybe String) 
+exitCodeStdioPath' conName = expr $ \i -> do
+   con <- useCon "Distribution.PackageDescription" $ Ident conName
+   pathVar <- newName "filepath"
+   caseE i 
+     [ (PApp con [PWildCard, PVar pathVar], applyE just' $ useVar pathVar)
+     , (PWildCard, nothing')
+     ]
 
 -- | Get the name, whether the target is enabled or not, possibly the main module path and the buildInfo of each testSuite in the package.
 tests' :: ExpG (PackageDescription -> [((String, Bool,Maybe FilePath), BuildInfo)])
 tests' = applyE map' serialize' <>. useValue "Distribution.PackageDescription" (Ident "testSuites")
   where serialize' = expr $ \test -> tuple2 
-                                    <>$ applyE3 tuple3 (testName' <>$ test) (testEnabled' <>$ test) (testPath <>. testInterface' <>$ test) 
+                                    <>$ applyE3 tuple3 (testName' <>$ test) (testEnabled' <>$ test) (exitCodeStdioPath' "TestSuiteExeV10" <>. testInterface' <>$ test) 
                                     <>$ applyE buildInfo' test
         testName'   = useValue "Distribution.PackageDescription" $ Ident "testName"
         testEnabled' = useValue "Distribution.PackageDescription" $ Ident "testEnabled"
         buildInfo' = useValue "Distribution.PackageDescription" $ Ident "testBuildInfo"
         testInterface' = useValue "Distribution.PackageDescription" $ Ident "testInterface"
-        testPath=expr $ \ti->do
-                v10  <- useCon "Distribution.PackageDescription" $ Ident "TestSuiteExeV10"
-                versionVar  <- newName "version"
-                fpVar  <- newName "filepath"                
-                caseE ti 
-                        [(PApp v10 [PVar versionVar,PVar fpVar],applyE just' (useVar fpVar))
-                        ,(PWildCard,nothing')
-                        ] 
 
 -- | Get the name, whether it's enabled or not and the buildInfo of each benchmark in the package.
 benchmarks' :: ExpG (PackageDescription -> [((String, Bool,Maybe FilePath), BuildInfo)])
 benchmarks' = applyE map' serialize' <>. useValue "Distribution.PackageDescription" (Ident "benchmarks")
   where serialize' = expr $ \bench -> tuple2 
-                                     <>$ applyE3 tuple3 (benchName' <>$ bench) (benchEnabled' <>$ bench) (benchPath <>. benchInterface' <>$ bench) 
+                                     <>$ applyE3 tuple3 (benchName' <>$ bench) (benchEnabled' <>$ bench) (exitCodeStdioPath' "BenchmarkExeV10" <>. benchInterface' <>$ bench) 
                                      <>$ applyE buildInfo' bench
         benchName'   = useValue "Distribution.PackageDescription" $ Ident "benchmarkName"
         benchEnabled' = useValue "Distribution.PackageDescription" $ Ident "benchmarkEnabled"
         buildInfo' = useValue "Distribution.PackageDescription" $ Ident "benchmarkBuildInfo"
         benchInterface' = useValue "Distribution.PackageDescription" $ Ident "benchmarkInterface"
-        benchPath=expr $ \ti->do
-                v10  <- useCon "Distribution.PackageDescription" $ Ident "BenchmarkExeV10"
-                versionVar  <- newName "version"
-                fpVar  <- newName "filepath"                
-                caseE ti 
-                        [(PApp v10 [PVar versionVar,PVar fpVar],applyE just' (useVar fpVar))
-                        ,(PWildCard,nothing')
-                        ] 
                         
 -- | Get the name of all targets and whether they are enabled (second field True) or not. 
 -- The resulting list is in the same order and has the same length as the list returned
@@ -263,7 +260,7 @@ targetInfos = build <$> query libMods <*> query exeNames <*> query testInfo <*> 
           [ [ (Library    x   , True) | x        <- lib   ]
           , [ (Executable x mp, True) | (x,mp)   <- exe   ]
           , [ (TestSuite  x mp, e   ) | (x,e,mp) <- test  ]
-          , [ (BenchSuite x mp, e   ) | (x,e,mp)    <- bench ]
+          , [ (BenchSuite x mp, e   ) | (x,e,mp) <- bench ]
           ]
 
 -- | Get the BuildInfo of all targets, even for disable or not buildable targets.
