@@ -1,18 +1,26 @@
 -- | This module contains queries that operate on a PackageDescription. It provides a function
 -- to extract all targets along with their dependencies.
 module Distribution.Client.Dynamic.PackageDescription
-  ( Target(..)
+  ( -- * Data types for targets
+    Target(..)
   , TargetInfo(..)
   , PackageDescription()
+
+    -- * Queries
   , targets
   , targetName, isLibrary, isExecutable, isTest, isBench
+
+    -- * Lenses and traversals for target related data types
+  , _name, _mainModule, _info, _dependencies, _sourceDirs, _includeDirs, _ghcOptions, _cppOptions, _extensions, _buildable, _otherModules, _enabled
   ) where
 
-import Control.Applicative
-import Data.Version
-import Distribution.Client.Dynamic.Query
-import Language.Haskell.Exts.Syntax
-import Language.Haskell.Generate
+import           Control.Applicative
+import           Data.Default
+import qualified Data.Traversable as T
+import           Data.Version
+import           Distribution.Client.Dynamic.Query
+import           Language.Haskell.Exts.Syntax
+import           Language.Haskell.Generate
 
 -- Type tags that we can use to make sure we don't accidently generate code that
 -- use a function for a PackageDescription on a BuildInfo value.
@@ -34,6 +42,23 @@ data TargetInfo = Library [String]     -- ^ contains the names of exposed module
   | TestSuite String (Maybe FilePath)  -- ^ contains the name of the test suite and the path to the Main module, for stdio tests
   | BenchSuite String (Maybe FilePath) -- ^ contains the name of the benchmark and the path to the Main module, for stdio benchmarks
   deriving (Show, Eq, Read, Ord)
+
+-- | Traverse the name of a target, if available (libraries don't have names).
+_name :: Applicative f => (String -> f String) -> TargetInfo -> f TargetInfo
+_name _ v@(Library _) = pure v
+_name f (Executable n p) = flip Executable p <$> f n
+_name f (TestSuite  n p) = flip TestSuite  p <$> f n
+_name f (BenchSuite n p) = flip BenchSuite p <$> f n
+
+-- | Traverse the path of the main module, if available.
+_mainModule :: Applicative f => (FilePath -> f FilePath) -> TargetInfo -> f TargetInfo
+_mainModule _ v@(Library _) = pure v
+_mainModule f (Executable n p) = Executable n <$> f p
+_mainModule f (TestSuite  n p) = TestSuite  n <$> T.traverse f p
+_mainModule f (BenchSuite n p) = BenchSuite n <$> T.traverse f p
+
+instance Default TargetInfo where
+  def = Library []
 
 -- | A target is a single Library, an Executable, a TestSuite or a Benchmark.
 data Target = Target
@@ -72,6 +97,41 @@ data Target = Target
   
   } deriving (Show, Eq, Read)
 
+instance Default Target where
+  def = Target def def def def def def def True def True
+
+(<&>) :: Functor f => f a -> (a -> b) -> f b
+(<&>) = flip fmap
+
+_info :: Functor f => (TargetInfo -> f TargetInfo) -> Target -> f Target
+_info f t = f (info t) <&> \i -> t { info = i }
+
+_dependencies :: Functor f => ([(String, Maybe Version)] -> f [(String, Maybe Version)]) -> Target -> f Target
+_dependencies f t = f (dependencies t) <&> \d -> t { dependencies = d }
+
+_sourceDirs :: Functor f => ([FilePath] -> f [FilePath]) -> Target -> f Target
+_sourceDirs f t = f (sourceDirs t) <&> \d -> t { sourceDirs = d }
+
+_includeDirs :: Functor f => ([FilePath] -> f [FilePath]) -> Target -> f Target
+_includeDirs f t = f (includeDirs t) <&> \d -> t { includeDirs = d }
+
+_ghcOptions :: Functor f => ([String] -> f [String]) -> Target -> f Target
+_ghcOptions f t = f (ghcOptions t) <&> \o -> t { ghcOptions = o }
+
+_cppOptions :: Functor f => ([String] -> f [String]) -> Target -> f Target
+_cppOptions f t = f (cppOptions t) <&> \o -> t { cppOptions = o }
+
+_extensions :: Functor f => ([String] -> f [String]) -> Target -> f Target
+_extensions f t = f (extensions t) <&> \e -> t { extensions = e }
+
+_buildable :: Functor f => (Bool -> f Bool) -> Target -> f Target
+_buildable f t = f (buildable t) <&> \b -> t { buildable = b }
+
+_otherModules :: Functor f => ([String] -> f [String]) -> Target -> f Target
+_otherModules f t = f (otherModules t) <&> \m -> t { otherModules = m }
+
+_enabled :: Functor f => (Bool -> f Bool) -> Target -> f Target
+_enabled f t = f (enabled t) <&> \e -> t { enabled = e }
 
 -- | return the target name, or the empty string for the library target
 targetName :: Target -> String

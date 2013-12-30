@@ -39,6 +39,7 @@ library
     , filepath
     , haskell-src-exts
     , void
+    , data-default
   exposed-modules:
       Distribution.Client.Dynamic
       Distribution.Client.Dynamic.Query
