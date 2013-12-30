@@ -32,7 +32,7 @@ instance Eq CompilerFlavor where _ == _ = undefined
 data TargetInfo = Library [String] -- ^ contains the names of exposed modules
   | Executable String FilePath -- ^ contains the name of the executable and the path to the Main module
   | TestSuite String (Maybe FilePath) -- ^ contains the name of the test suite and the path to the Main module, for stdio tests
-  | BenchSuite String  -- ^ contains the name of the benchmark
+  | BenchSuite String (Maybe FilePath) -- ^ contains the name of the benchmark and the path to the Main module, for stdio benchmarks
   deriving (Show, Eq, Read, Ord)
 
 -- | A target is a single Library, an Executable, a TestSuite or a Benchmark.
@@ -80,7 +80,7 @@ targetName t = case info t of
   (Library _)      -> ""
   (Executable n _) -> n
   (TestSuite  n _) -> n
-  (BenchSuite n)   -> n
+  (BenchSuite n _)   -> n
 
 -- | is the target the library?
 isLibrary :: Target -> Bool
@@ -103,7 +103,7 @@ isTest t = case info t of
 -- | is the target a benchmark?
 isBench :: Target -> Bool
 isBench t = case info t of
-  (BenchSuite _) -> True
+  (BenchSuite _ _) -> True
   _              -> False
 
 buildable' :: Selector BuildInfo Bool
@@ -224,15 +224,24 @@ tests' = applyE map' serialize' <>. useValue "Distribution.PackageDescription" (
                         ] 
 
 -- | Get the name, whether it's enabled or not and the buildInfo of each benchmark in the package.
-benchmarks' :: ExpG (PackageDescription -> [((String, Bool), BuildInfo)])
+benchmarks' :: ExpG (PackageDescription -> [((String, Bool,Maybe FilePath), BuildInfo)])
 benchmarks' = applyE map' serialize' <>. useValue "Distribution.PackageDescription" (Ident "benchmarks")
   where serialize' = expr $ \bench -> tuple2 
-                                     <>$ applyE2 tuple2 (benchName' <>$ bench) (benchEnabled' <>$ bench)
+                                     <>$ applyE3 tuple3 (benchName' <>$ bench) (benchEnabled' <>$ bench) (benchPath <>. benchInterface' <>$ bench) 
                                      <>$ applyE buildInfo' bench
         benchName'   = useValue "Distribution.PackageDescription" $ Ident "benchmarkName"
         benchEnabled' = useValue "Distribution.PackageDescription" $ Ident "benchmarkEnabled"
         buildInfo' = useValue "Distribution.PackageDescription" $ Ident "benchmarkBuildInfo"
-
+        benchInterface' = useValue "Distribution.PackageDescription" $ Ident "benchmarkInterface"
+        benchPath=expr $ \ti->do
+                v10  <- useCon "Distribution.PackageDescription" $ Ident "BenchmarkExeV10"
+                versionVar  <- newName "version"
+                fpVar  <- newName "filepath"                
+                caseE ti 
+                        [(PApp v10 [PVar versionVar,PVar fpVar],applyE just' (useVar fpVar))
+                        ,(PWildCard,nothing')
+                        ] 
+                        
 -- | Get the name of all targets and whether they are enabled (second field True) or not. 
 -- The resulting list is in the same order and has the same length as the list returned
 -- by buildInfos.
@@ -247,14 +256,14 @@ targetInfos = build <$> query libMods <*> query exeNames <*> query testInfo <*> 
         testInfo :: Selector PackageDescription [(String, Bool,Maybe FilePath)]
         testInfo = selector $ const $ applyE map' fst' <>. tests'
 
-        benchInfo :: Selector PackageDescription [(String, Bool)]
+        benchInfo :: Selector PackageDescription [(String, Bool,Maybe FilePath)]
         benchInfo = selector $ const $ applyE map' fst' <>. benchmarks'
 
         build lib exe test bench = concat
           [ [ (Library    x   , True) | x        <- lib   ]
           , [ (Executable x mp, True) | (x,mp)   <- exe   ]
           , [ (TestSuite  x mp, e   ) | (x,e,mp) <- test  ]
-          , [ (BenchSuite x   , e   ) | (x,e)    <- bench ]
+          , [ (BenchSuite x mp, e   ) | (x,e,mp)    <- bench ]
           ]
 
 -- | Get the BuildInfo of all targets, even for disable or not buildable targets.
