@@ -142,7 +142,7 @@ withTempWorkingDir act = do
   setCurrentDirectory pwd
   res <$ removeDirectoryRecursive tmp
 
-generateSource :: Selector LocalBuildInfo o -> String -> FilePath -> Version -> IO (String)
+generateSource :: Selector LocalBuildInfo o -> String -> FilePath -> Version -> IO String
 generateSource (Selector s) modName setupConfig version = 
   return $ flip generateModule modName $ do
     getLBI <- addDecl (Ident "getLBI") $ 
@@ -159,15 +159,16 @@ runQuery (Query s post) setupConfig = do
   src<-  generateSource s "DynamicCabalQuery" setupConfig' version
   runRawQuery' src setupConfig post
   
--- | run a raw query, getting the full source from the first parameter
+-- | Run a raw query, getting the full source from the first parameter
 -- the module must be DynamicCabalQuery and it must have a result declaration
-runRawQuery :: (Typeable a)=>String -> FilePath -> IO a
+runRawQuery :: Typeable a => String -> FilePath -> IO a
 runRawQuery s setupConfig = runRawQuery' s setupConfig id
   
--- | run a raw query, getting the full source from the first parameter
--- the module must be DynamicCabalQuery and it must have a result declaration
-runRawQuery' :: (Typeable i)=>String -> FilePath -> (i->a)-> IO a
-runRawQuery' s setupConfig post= do
+-- | Run a raw query, getting the full source from the first parameter.
+-- The module must be DynamicCabalQuery and it must have a result declaration.
+-- The third argument is a function to apply to the result of running the query.
+runRawQuery' :: Typeable i => String -> FilePath -> (i -> a) -> IO a
+runRawQuery' s setupConfig post = do
   setupConfig' <- canonicalizePath setupConfig
   withTempWorkingDir $ do
     version <- getCabalVersion setupConfig'

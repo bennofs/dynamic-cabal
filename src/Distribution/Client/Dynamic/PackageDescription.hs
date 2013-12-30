@@ -76,35 +76,35 @@ data Target = Target
 
 -- | return the target name, or the empty string for the library target
 targetName :: Target -> String
-targetName t=case info t of
-  (Library _)->""
-  (Executable n _)->n
-  (TestSuite n _)->n
-  (BenchSuite n)->n
+targetName t = case info t of
+  (Library _)      -> ""
+  (Executable n _) -> n
+  (TestSuite  n _) -> n
+  (BenchSuite n)   -> n
 
 -- | is the target the library?
 isLibrary :: Target -> Bool
-isLibrary t=case info t of
-  (Library _)->True
-  _->False
+isLibrary t = case info t of
+  (Library _) -> True
+  _           -> False
 
 -- | is the target an executable?
 isExecutable :: Target -> Bool
-isExecutable t=case info t of
-  (Executable _ _)->True
-  _->False
+isExecutable t = case info t of
+  (Executable _ _) -> True
+  _                -> False
 
 -- | is the target a test suite?
 isTest :: Target -> Bool
-isTest t=case info t of
-  (TestSuite _ _)->True
-  _->False
+isTest t = case info t of
+  (TestSuite _ _) -> True
+  _               -> False
 
 -- | is the target a benchmark?
 isBench :: Target -> Bool
-isBench t=case info t of
-  (BenchSuite _)->True
-  _->False
+isBench t = case info t of
+  (BenchSuite _) -> True
+  _              -> False
 
 buildable' :: Selector BuildInfo Bool
 buildable' = selector $ const $ useValue "Distribution.PackageDescription" $ Ident "buildable"
@@ -145,9 +145,8 @@ cppOptions' = selector $ const options'
 
 -- | Get the non exposed modules.
 otherModules' :: Selector BuildInfo [String]
-otherModules' = selector $ const $ applyE map' display'  <>. mods'
-  where 
-        display' :: ExpG (Distribution.Client.Dynamic.PackageDescription.ModuleName -> String)
+otherModules' = selector $ const $ applyE map' display' <>. mods'
+  where display' :: ExpG (Distribution.Client.Dynamic.PackageDescription.ModuleName -> String)
         display' = useValue "Distribution.Text" $ Ident "display"
         mods' :: ExpG (BuildInfo -> [Distribution.Client.Dynamic.PackageDescription.ModuleName])
         mods' = useValue "Distribution.PackageDescription" $ Ident "otherModules"
@@ -189,8 +188,8 @@ buildInfoTarget = (\d src inc opts copts exts ba oths n-> Target n d src inc opt
 -- return the empty list.
 library' :: ExpG (PackageDescription -> [([String],BuildInfo)])
 library' = applyE2 maybe' (returnE $ List []) serialize' <>. useValue "Distribution.PackageDescription" (Ident "library")
-  where serialize' = expr $ \lib ->applyE2 cons (tuple2 <>$ applyE modNames' lib <>$ applyE buildInfo' lib) (returnE $ List [])
-        modNames'=applyE map' display'  <>. mods'
+  where serialize' = expr $ \lib -> applyE2 cons (tuple2 <>$ applyE modNames' lib <>$ applyE buildInfo' lib) (returnE $ List [])
+        modNames'=applyE map' display' <>. mods'
         display' = useValue "Distribution.Text" $ Ident "display"
         mods'   = useValue "Distribution.PackageDescription" $ Ident "exposedModules"
         buildInfo' = useValue "Distribution.PackageDescription" $ Ident "libBuildInfo"
@@ -199,7 +198,7 @@ library' = applyE2 maybe' (returnE $ List []) serialize' <>. useValue "Distribut
 executables' :: ExpG (PackageDescription -> [((String,FilePath), BuildInfo)])
 executables'= applyE map' serialize' <>. useValue "Distribution.PackageDescription" (Ident "executables")
   where serialize' = expr $ \exe -> tuple2 <>$ applyE exeInfo exe <>$ applyE buildInfo' exe
-        exeInfo= expr $ \exe ->tuple2 <>$ applyE exeName' exe <>$ applyE modulePath' exe 
+        exeInfo= expr $ \exe -> tuple2 <>$ applyE exeName' exe <>$ applyE modulePath' exe 
         exeName'   = useValue "Distribution.PackageDescription" $ Ident "exeName"
         modulePath'= useValue "Distribution.PackageDescription" $ Ident "modulePath"
         buildInfo' = useValue "Distribution.PackageDescription" $ Ident "buildInfo"
@@ -252,10 +251,10 @@ targetInfos = build <$> query libMods <*> query exeNames <*> query testInfo <*> 
         benchInfo = selector $ const $ applyE map' fst' <>. benchmarks'
 
         build lib exe test bench = concat
-          [ [ (Library    x , True) | x <- lib           ]
-          , [ (Executable x mp, True) | (x,mp) <- exe       ]
-          , [ (TestSuite  x mp, e)    | (x,e,mp) <- test  ]
-          , [ (BenchSuite x , e)    | (x,e) <- bench ]
+          [ [ (Library    x   , True) | x        <- lib   ]
+          , [ (Executable x mp, True) | (x,mp)   <- exe   ]
+          , [ (TestSuite  x mp, e   ) | (x,e,mp) <- test  ]
+          , [ (BenchSuite x   , e   ) | (x,e)    <- bench ]
           ]
 
 -- | Get the BuildInfo of all targets, even for disable or not buildable targets.
