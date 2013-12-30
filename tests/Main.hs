@@ -11,14 +11,23 @@ import           Test.Tasty.TH
 case_targets :: Assertion
 case_targets = do
   tgs <- runQuery (on localPkgDesc targets) "dist/setup-config"
-  assertEqual "target names" (sort [Library ["Distribution.Client.Dynamic"
-      ,"Distribution.Client.Dynamic.Query"
-      ,"Distribution.Client.Dynamic.LocalBuildInfo"
-      ,"Distribution.Client.Dynamic.PackageDescription"], TestSuite "dynamic-cabal-tests" (Just "Main.hs"), TestSuite "doctests" (Just "doctests.hs")]) (sort $ map info tgs) 
+  assertEqual "target names" 
+    (sort 
+    [ Library 
+      [ "Distribution.Client.Dynamic"
+      , "Distribution.Client.Dynamic.Query"
+      , "Distribution.Client.Dynamic.LocalBuildInfo" 
+      , "Distribution.Client.Dynamic.PackageDescription"
+      ]
+    , TestSuite "dynamic-cabal-tests" (Just "Main.hs")
+    , TestSuite "doctests" (Just "doctests.hs")
+    ]) 
+    (sort $ map info tgs) 
   assertEqual "source directories" (sort $ map sourceDirs tgs) $ sort $ map return ["src", "tests", "tests"]
   assertBool "ghc options" $ all (elem "-Wall" . ghcOptions)  tgs
   assertBool "no extensions" $ all (null . extensions) tgs
   assertBool  "everything buildable" $ all buildable tgs
+  assertBool "no cpp options" $ all (null . cppOptions) tgs
 
 case_packageDBs :: Assertion
 case_packageDBs = do
