@@ -1,18 +1,26 @@
 -- | This module contains queries that operate on a PackageDescription. It provides a function
 -- to extract all targets along with their dependencies.
 module Distribution.Client.Dynamic.PackageDescription
-  ( Target(..)
+  ( -- * Data types for targets
+    Target(..)
   , TargetInfo(..)
   , PackageDescription()
+
+    -- * Queries
   , targets
   , targetName, isLibrary, isExecutable, isTest, isBench
+
+    -- * Lenses and traversals for target related data types
+  , _name, _mainModule, _info, _dependencies, _sourceDirs, _includeDirs, _ghcOptions, _cppOptions, _extensions, _buildable, _otherModules, _enabled
   ) where
 
-import Control.Applicative
-import Data.Version
-import Distribution.Client.Dynamic.Query
-import Language.Haskell.Exts.Syntax
-import Language.Haskell.Generate
+import           Control.Applicative
+import           Data.Default
+import qualified Data.Traversable as T
+import           Data.Version
+import           Distribution.Client.Dynamic.Query
+import           Language.Haskell.Exts.Syntax
+import           Language.Haskell.Generate
 
 -- Type tags that we can use to make sure we don't accidently generate code that
 -- use a function for a PackageDescription on a BuildInfo value.
@@ -29,11 +37,28 @@ instance Eq CompilerFlavor where _ == _ = undefined
 
 -- | The specific information on a target, depending on the target type.
 -- Libraries don't have a name, they are always named after the package, but other types do
-data TargetInfo = Library [String] -- ^ contains the names of exposed modules
-  | Executable String FilePath -- ^ contains the name of the executable and the path to the Main module
-  | TestSuite String (Maybe FilePath) -- ^ contains the name of the test suite and the path to the Main module, for stdio tests
+data TargetInfo = Library [String]     -- ^ contains the names of exposed modules
+  | Executable String FilePath         -- ^ contains the name of the executable and the path to the Main module
+  | TestSuite String (Maybe FilePath)  -- ^ contains the name of the test suite and the path to the Main module, for stdio tests
   | BenchSuite String (Maybe FilePath) -- ^ contains the name of the benchmark and the path to the Main module, for stdio benchmarks
   deriving (Show, Eq, Read, Ord)
+
+-- | Traverse the name of a target, if available (libraries don't have names).
+_name :: Applicative f => (String -> f String) -> TargetInfo -> f TargetInfo
+_name _ v@(Library _) = pure v
+_name f (Executable n p) = flip Executable p <$> f n
+_name f (TestSuite  n p) = flip TestSuite  p <$> f n
+_name f (BenchSuite n p) = flip BenchSuite p <$> f n
+
+-- | Traverse the path of the main module, if available.
+_mainModule :: Applicative f => (FilePath -> f FilePath) -> TargetInfo -> f TargetInfo
+_mainModule _ v@(Library _) = pure v
+_mainModule f (Executable n p) = Executable n <$> f p
+_mainModule f (TestSuite  n p) = TestSuite  n <$> T.traverse f p
+_mainModule f (BenchSuite n p) = BenchSuite n <$> T.traverse f p
+
+instance Default TargetInfo where
+  def = Library []
 
 -- | A target is a single Library, an Executable, a TestSuite or a Benchmark.
 data Target = Target
@@ -70,9 +95,43 @@ data Target = Target
     -- | Whether this target was enabled or not. This only matters for Benchmarks or Tests, Executables and Libraries are always enabled.
   , enabled      :: Bool
   
-
   } deriving (Show, Eq, Read)
 
+instance Default Target where
+  def = Target def def def def def def def True def True
+
+(<&>) :: Functor f => f a -> (a -> b) -> f b
+(<&>) = flip fmap
+
+_info :: Functor f => (TargetInfo -> f TargetInfo) -> Target -> f Target
+_info f t = f (info t) <&> \i -> t { info = i }
+
+_dependencies :: Functor f => ([(String, Maybe Version)] -> f [(String, Maybe Version)]) -> Target -> f Target
+_dependencies f t = f (dependencies t) <&> \d -> t { dependencies = d }
+
+_sourceDirs :: Functor f => ([FilePath] -> f [FilePath]) -> Target -> f Target
+_sourceDirs f t = f (sourceDirs t) <&> \d -> t { sourceDirs = d }
+
+_includeDirs :: Functor f => ([FilePath] -> f [FilePath]) -> Target -> f Target
+_includeDirs f t = f (includeDirs t) <&> \d -> t { includeDirs = d }
+
+_ghcOptions :: Functor f => ([String] -> f [String]) -> Target -> f Target
+_ghcOptions f t = f (ghcOptions t) <&> \o -> t { ghcOptions = o }
+
+_cppOptions :: Functor f => ([String] -> f [String]) -> Target -> f Target
+_cppOptions f t = f (cppOptions t) <&> \o -> t { cppOptions = o }
+
+_extensions :: Functor f => ([String] -> f [String]) -> Target -> f Target
+_extensions f t = f (extensions t) <&> \e -> t { extensions = e }
+
+_buildable :: Functor f => (Bool -> f Bool) -> Target -> f Target
+_buildable f t = f (buildable t) <&> \b -> t { buildable = b }
+
+_otherModules :: Functor f => ([String] -> f [String]) -> Target -> f Target
+_otherModules f t = f (otherModules t) <&> \m -> t { otherModules = m }
+
+_enabled :: Functor f => (Bool -> f Bool) -> Target -> f Target
+_enabled f t = f (enabled t) <&> \e -> t { enabled = e }
 
 -- | return the target name, or the empty string for the library target
 targetName :: Target -> String
@@ -203,44 +262,42 @@ executables'= applyE map' serialize' <>. useValue "Distribution.PackageDescripti
         modulePath'= useValue "Distribution.PackageDescription" $ Ident "modulePath"
         buildInfo' = useValue "Distribution.PackageDescription" $ Ident "buildInfo"
 
+-- | Get the filepath of a exit-code-stdio interface (for test cases or benchmarks)
+-- The first argument specifies the constructor which contains the interface data. 
+-- For test suites, this should be TestSuiteExeV10, for benchmarks, it should be BenchmarkExeV10.
+-- 
+-- Note: This function is not entirely typesafe, because the argument type of the returned function
+-- is polymorphic. You have to make sure that the type has the given constructor.
+exitCodeStdioPath' :: String -> ExpG (a -> Maybe String) 
+exitCodeStdioPath' conName = expr $ \i -> do
+   con <- useCon "Distribution.PackageDescription" $ Ident conName
+   pathVar <- newName "filepath"
+   caseE i 
+     [ (PApp con [PWildCard, PVar pathVar], applyE just' $ useVar pathVar)
+     , (PWildCard, nothing')
+     ]
 
 -- | Get the name, whether the target is enabled or not, possibly the main module path and the buildInfo of each testSuite in the package.
 tests' :: ExpG (PackageDescription -> [((String, Bool,Maybe FilePath), BuildInfo)])
 tests' = applyE map' serialize' <>. useValue "Distribution.PackageDescription" (Ident "testSuites")
   where serialize' = expr $ \test -> tuple2 
-                                    <>$ applyE3 tuple3 (testName' <>$ test) (testEnabled' <>$ test) (testPath <>. testInterface' <>$ test) 
+                                    <>$ applyE3 tuple3 (testName' <>$ test) (testEnabled' <>$ test) (exitCodeStdioPath' "TestSuiteExeV10" <>. testInterface' <>$ test) 
                                     <>$ applyE buildInfo' test
         testName'   = useValue "Distribution.PackageDescription" $ Ident "testName"
         testEnabled' = useValue "Distribution.PackageDescription" $ Ident "testEnabled"
         buildInfo' = useValue "Distribution.PackageDescription" $ Ident "testBuildInfo"
         testInterface' = useValue "Distribution.PackageDescription" $ Ident "testInterface"
-        testPath=expr $ \ti->do
-                v10  <- useCon "Distribution.PackageDescription" $ Ident "TestSuiteExeV10"
-                versionVar  <- newName "version"
-                fpVar  <- newName "filepath"                
-                caseE ti 
-                        [(PApp v10 [PVar versionVar,PVar fpVar],applyE just' (useVar fpVar))
-                        ,(PWildCard,nothing')
-                        ] 
 
 -- | Get the name, whether it's enabled or not and the buildInfo of each benchmark in the package.
 benchmarks' :: ExpG (PackageDescription -> [((String, Bool,Maybe FilePath), BuildInfo)])
 benchmarks' = applyE map' serialize' <>. useValue "Distribution.PackageDescription" (Ident "benchmarks")
   where serialize' = expr $ \bench -> tuple2 
-                                     <>$ applyE3 tuple3 (benchName' <>$ bench) (benchEnabled' <>$ bench) (benchPath <>. benchInterface' <>$ bench) 
+                                     <>$ applyE3 tuple3 (benchName' <>$ bench) (benchEnabled' <>$ bench) (exitCodeStdioPath' "BenchmarkExeV10" <>. benchInterface' <>$ bench) 
                                      <>$ applyE buildInfo' bench
         benchName'   = useValue "Distribution.PackageDescription" $ Ident "benchmarkName"
         benchEnabled' = useValue "Distribution.PackageDescription" $ Ident "benchmarkEnabled"
         buildInfo' = useValue "Distribution.PackageDescription" $ Ident "benchmarkBuildInfo"
         benchInterface' = useValue "Distribution.PackageDescription" $ Ident "benchmarkInterface"
-        benchPath=expr $ \ti->do
-                v10  <- useCon "Distribution.PackageDescription" $ Ident "BenchmarkExeV10"
-                versionVar  <- newName "version"
-                fpVar  <- newName "filepath"                
-                caseE ti 
-                        [(PApp v10 [PVar versionVar,PVar fpVar],applyE just' (useVar fpVar))
-                        ,(PWildCard,nothing')
-                        ] 
                         
 -- | Get the name of all targets and whether they are enabled (second field True) or not. 
 -- The resulting list is in the same order and has the same length as the list returned
@@ -263,7 +320,7 @@ targetInfos = build <$> query libMods <*> query exeNames <*> query testInfo <*> 
           [ [ (Library    x   , True) | x        <- lib   ]
           , [ (Executable x mp, True) | (x,mp)   <- exe   ]
           , [ (TestSuite  x mp, e   ) | (x,e,mp) <- test  ]
-          , [ (BenchSuite x mp, e   ) | (x,e,mp)    <- bench ]
+          , [ (BenchSuite x mp, e   ) | (x,e,mp) <- bench ]
           ]
 
 -- | Get the BuildInfo of all targets, even for disable or not buildable targets.
