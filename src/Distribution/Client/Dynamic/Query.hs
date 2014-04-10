@@ -46,7 +46,9 @@ import           System.IO.Error (isAlreadyExistsError)
 import           Text.ParserCombinators.ReadP
 
 #if __GLASGOW_HASKELL__ >= 707
+#if __GLASGOW_HASKELL__ < 708
 type Typeable1 (f :: * -> *) = Typeable f
+#endif
 #endif 
 
 -- | This is just a dummy type representing a LocalBuildInfo. You don't have to use
