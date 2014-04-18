@@ -25,7 +25,7 @@ import           Language.Haskell.Generate
 -- Type tags that we can use to make sure we don't accidently generate code that
 -- use a function for a PackageDescription on a BuildInfo value.
 
--- | A package description type. This type has no constructors, and is only used 
+-- | A package description type. This type has no constructors, and is only used
 -- for type-safety purposes.
 data PackageDescription
 data BuildInfo
@@ -65,11 +65,11 @@ data Target = Target
   { -- | The specific info of the target
     info         :: TargetInfo
 
-    -- | All dependencies of the target, with their versions. If the version is not resolved yet, it'll be Nothing. 
+    -- | All dependencies of the target, with their versions. If the version is not resolved yet, it'll be Nothing.
     -- That only happens when the target is not enabled, though.
   , dependencies :: [(String, Maybe Version)]
 
-    -- | Directories where to look for source files. 
+    -- | Directories where to look for source files.
   , sourceDirs   :: [FilePath]
 
     -- | Directories where to look for header files.
@@ -81,7 +81,7 @@ data Target = Target
     -- | Additional options to pass to CPP preprocessor when compiling source files.
   , cppOptions   :: [String]
 
-    -- | The extensions to enable/disable. The elements are like GHC's -X flags, a disabled extension 
+    -- | The extensions to enable/disable. The elements are like GHC's -X flags, a disabled extension
     -- is represented as the extension name prefixed by 'No'.
     -- Example value: extensions = ["ScopedTypeVariables", "NoMultiParamTypeClasses"]
   , extensions   :: [String]
@@ -92,13 +92,15 @@ data Target = Target
     -- | other modules included in the target
   , otherModules :: [String]
 
+    -- | The 'c-sources' field in the package description.
+  , cSources     :: [String]
+
     -- | Whether this target was enabled or not. This only matters for Benchmarks or Tests, Executables and Libraries are always enabled.
   , enabled      :: Bool
-  
   } deriving (Show, Eq, Read)
 
 instance Default Target where
-  def = Target def def def def def def def True def True
+  def = Target def def def def def def def True def def True
 
 (<&>) :: Functor f => f a -> (a -> b) -> f b
 (<&>) = flip fmap
@@ -132,6 +134,9 @@ _otherModules f t = f (otherModules t) <&> \m -> t { otherModules = m }
 
 _enabled :: Functor f => (Bool -> f Bool) -> Target -> f Target
 _enabled f t = f (enabled t) <&> \e -> t { enabled = e }
+
+_cSources :: Functor f => ([String] -> f [String]) -> Target -> f Target
+_cSources f t = f (cSources t) <&> \cs -> t { cSources = cs }
 
 -- | return the target name, or the empty string for the library target
 targetName :: Target -> String
@@ -171,6 +176,9 @@ buildable' = selector $ const $ useValue "Distribution.PackageDescription" $ Ide
 hsSourceDirs' :: Selector BuildInfo [FilePath]
 hsSourceDirs' = selector $ const $ useValue "Distribution.PackageDescription" $ Ident "hsSourceDirs"
 
+cSources' :: Selector BuildInfo [FilePath]
+cSources' = selector $ const $ useValue "Distribution.PackageDescription" $ Ident "cSources"
+
 -- | The include search path of a buildInfo. Same as the 'includeDir' field in Cabal's BuildInfo.
 includeDirs' :: Selector BuildInfo [FilePath]
 includeDirs' = selector $ const $ useValue "Distribution.PackageDescription" $ Ident "includeDirs"
@@ -181,7 +189,7 @@ extensions' :: Selector BuildInfo [String]
 extensions' = selector $ const $ expr $ \bi -> applyE2 map' display' $ applyE concat' $ expr $ map (<>$ bi) [defaultExtensions', oldExtensions', otherExtensions']
   where display' :: ExpG (Extension -> String)
         display' = useValue "Distribution.Text" $ Ident "display"
-        
+
         defaultExtensions', oldExtensions',otherExtensions' :: ExpG (BuildInfo -> [Extension])
         defaultExtensions' = useValue "Distribution.PackageDescription" $ Ident "defaultExtensions"
         oldExtensions' = useValue "Distribution.PackageDescription" $ Ident "oldExtensions"
@@ -223,7 +231,7 @@ dependencies' = selector $ const $ applyE map' serializeDep <>. targetBuildDepen
           nameVar     <- newName "name"
           versionVar  <- newName "version"
           caseE dep
-            [ ( PApp dependency [PApp packageName [PVar nameVar], PVar versionVar], 
+            [ ( PApp dependency [PApp packageName [PVar nameVar], PVar versionVar],
                   tuple2 <>$ useVar nameVar <>$ applyE isSpecificVersion (useVar versionVar)
               )
             ]
@@ -233,22 +241,26 @@ dependencies' = selector $ const $ applyE map' serializeDep <>. targetBuildDepen
 
 -- | Construct a 'Target' from a buildInfo, a targetName and a Bool that is True if the target is enabled, false otherwise.
 buildInfoTarget :: Query BuildInfo (TargetInfo -> Bool -> Target)
-buildInfoTarget = (\d src inc opts copts exts ba oths n-> Target n d src inc opts copts exts ba oths)
-                 <$> query dependencies' 
-                 <*> query hsSourceDirs' 
-                 <*> query includeDirs' 
-                 <*> query ghcOptions'
-                 <*> query cppOptions'
-                 <*> query extensions'
-                 <*> query buildable'
-                 <*> query otherModules'
+buildInfoTarget = pure Target
+                 <***> query dependencies'
+                 <***> query hsSourceDirs'
+                 <***> query includeDirs'
+                 <***> query ghcOptions'
+                 <***> query cppOptions'
+                 <***> query extensions'
+                 <***> query buildable'
+                 <***> query otherModules'
+                 <***> query cSources'
+  where (<***>) :: Applicative f => f (a -> b -> c) -> f b -> f (a -> c)
+        f <***> b = fmap flip f <*> b
+        infixl 4 <***>
 
--- | Get the buildInfo of the library in the package, and its exposed modules. If there is no library in the package, 
+-- | Get the buildInfo of the library in the package, and its exposed modules. If there is no library in the package,
 -- return the empty list.
 library' :: ExpG (PackageDescription -> [([String],BuildInfo)])
 library' = applyE2 maybe' (returnE $ List []) serialize' <>. useValue "Distribution.PackageDescription" (Ident "library")
   where serialize' = expr $ \lib -> applyE2 cons (tuple2 <>$ applyE modNames' lib <>$ applyE buildInfo' lib) (returnE $ List [])
-        modNames'=applyE map' display' <>. mods'
+        modNames' = applyE map' display' <>. mods'
         display' = useValue "Distribution.Text" $ Ident "display"
         mods'   = useValue "Distribution.PackageDescription" $ Ident "exposedModules"
         buildInfo' = useValue "Distribution.PackageDescription" $ Ident "libBuildInfo"
@@ -257,22 +269,22 @@ library' = applyE2 maybe' (returnE $ List []) serialize' <>. useValue "Distribut
 executables' :: ExpG (PackageDescription -> [((String,FilePath), BuildInfo)])
 executables'= applyE map' serialize' <>. useValue "Distribution.PackageDescription" (Ident "executables")
   where serialize' = expr $ \exe -> tuple2 <>$ applyE exeInfo exe <>$ applyE buildInfo' exe
-        exeInfo= expr $ \exe -> tuple2 <>$ applyE exeName' exe <>$ applyE modulePath' exe 
+        exeInfo= expr $ \exe -> tuple2 <>$ applyE exeName' exe <>$ applyE modulePath' exe
         exeName'   = useValue "Distribution.PackageDescription" $ Ident "exeName"
         modulePath'= useValue "Distribution.PackageDescription" $ Ident "modulePath"
         buildInfo' = useValue "Distribution.PackageDescription" $ Ident "buildInfo"
 
 -- | Get the filepath of a exit-code-stdio interface (for test cases or benchmarks)
--- The first argument specifies the constructor which contains the interface data. 
+-- The first argument specifies the constructor which contains the interface data.
 -- For test suites, this should be TestSuiteExeV10, for benchmarks, it should be BenchmarkExeV10.
--- 
+--
 -- Note: This function is not entirely typesafe, because the argument type of the returned function
 -- is polymorphic. You have to make sure that the type has the given constructor.
-exitCodeStdioPath' :: String -> ExpG (a -> Maybe String) 
+exitCodeStdioPath' :: String -> ExpG (a -> Maybe String)
 exitCodeStdioPath' conName = expr $ \i -> do
    con <- useCon "Distribution.PackageDescription" $ Ident conName
    pathVar <- newName "filepath"
-   caseE i 
+   caseE i
      [ (PApp con [PWildCard, PVar pathVar], applyE just' $ useVar pathVar)
      , (PWildCard, nothing')
      ]
@@ -280,8 +292,8 @@ exitCodeStdioPath' conName = expr $ \i -> do
 -- | Get the name, whether the target is enabled or not, possibly the main module path and the buildInfo of each testSuite in the package.
 tests' :: ExpG (PackageDescription -> [((String, Bool,Maybe FilePath), BuildInfo)])
 tests' = applyE map' serialize' <>. useValue "Distribution.PackageDescription" (Ident "testSuites")
-  where serialize' = expr $ \test -> tuple2 
-                                    <>$ applyE3 tuple3 (testName' <>$ test) (testEnabled' <>$ test) (exitCodeStdioPath' "TestSuiteExeV10" <>. testInterface' <>$ test) 
+  where serialize' = expr $ \test -> tuple2
+                                    <>$ applyE3 tuple3 (testName' <>$ test) (testEnabled' <>$ test) (exitCodeStdioPath' "TestSuiteExeV10" <>. testInterface' <>$ test)
                                     <>$ applyE buildInfo' test
         testName'   = useValue "Distribution.PackageDescription" $ Ident "testName"
         testEnabled' = useValue "Distribution.PackageDescription" $ Ident "testEnabled"
@@ -291,15 +303,15 @@ tests' = applyE map' serialize' <>. useValue "Distribution.PackageDescription" (
 -- | Get the name, whether it's enabled or not and the buildInfo of each benchmark in the package.
 benchmarks' :: ExpG (PackageDescription -> [((String, Bool,Maybe FilePath), BuildInfo)])
 benchmarks' = applyE map' serialize' <>. useValue "Distribution.PackageDescription" (Ident "benchmarks")
-  where serialize' = expr $ \bench -> tuple2 
-                                     <>$ applyE3 tuple3 (benchName' <>$ bench) (benchEnabled' <>$ bench) (exitCodeStdioPath' "BenchmarkExeV10" <>. benchInterface' <>$ bench) 
+  where serialize' = expr $ \bench -> tuple2
+                                     <>$ applyE3 tuple3 (benchName' <>$ bench) (benchEnabled' <>$ bench) (exitCodeStdioPath' "BenchmarkExeV10" <>. benchInterface' <>$ bench)
                                      <>$ applyE buildInfo' bench
         benchName'   = useValue "Distribution.PackageDescription" $ Ident "benchmarkName"
         benchEnabled' = useValue "Distribution.PackageDescription" $ Ident "benchmarkEnabled"
         buildInfo' = useValue "Distribution.PackageDescription" $ Ident "benchmarkBuildInfo"
         benchInterface' = useValue "Distribution.PackageDescription" $ Ident "benchmarkInterface"
-                        
--- | Get the name of all targets and whether they are enabled (second field True) or not. 
+
+-- | Get the name of all targets and whether they are enabled (second field True) or not.
 -- The resulting list is in the same order and has the same length as the list returned
 -- by buildInfos.
 targetInfos :: Query PackageDescription [(TargetInfo, Bool)]
@@ -328,17 +340,17 @@ buildInfos :: Selector PackageDescription [BuildInfo]
 buildInfos = selector $ const $ expr $ \bi -> applyE concat' $ expr $ map (<>$ bi) [libraryBI, exesBI, testsBI, benchsBI]
   where libraryBI :: ExpG (PackageDescription -> [BuildInfo])
         libraryBI = applyE map' snd' <>. library'
-        
+
         exesBI    :: ExpG (PackageDescription -> [BuildInfo])
         exesBI    = applyE map' snd' <>. executables'
-                     
+
         testsBI   :: ExpG (PackageDescription -> [BuildInfo])
         testsBI   = applyE map' snd' <>. tests'
 
         benchsBI  :: ExpG (PackageDescription -> [BuildInfo])
         benchsBI  = applyE map' snd' <>. benchmarks'
 
--- | Query the available targets. This will return all targets, even disabled ones. 
+-- | Query the available targets. This will return all targets, even disabled ones.
 -- If a package is disabled or not buildable, it's possible that not all dependencies have versions, some can be Nothing.
 targets :: Query PackageDescription [Target]
 targets = zipWith uncurry <$> on buildInfos (fmapQ buildInfoTarget) <*> targetInfos
