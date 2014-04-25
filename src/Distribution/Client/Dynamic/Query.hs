@@ -184,6 +184,7 @@ runRawQuery' s setupConfig post = do
              { GHC.ghcLink = GHC.LinkInMemory
              , GHC.hscTarget = GHC.HscInterpreted
              , GHC.packageFlags = [DynFlags.ExposePackage $ "Cabal-" ++ showVersion version]
+             , GHC.ctxtStkDepth = 1000
              }
       dflags' <- GHC.getSessionDynFlags
 
