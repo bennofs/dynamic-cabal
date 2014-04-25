@@ -1,5 +1,5 @@
 name:          dynamic-cabal
-version:       0.3
+version:       0.3.1
 license:       BSD3
 category:      Distribution 
 cabal-version: >= 1.10
