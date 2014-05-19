@@ -83,7 +83,8 @@ data Target = Target
 
     -- | The extensions to enable/disable. The elements are like GHC's -X flags, a disabled extension
     -- is represented as the extension name prefixed by 'No'.
-    -- Example value: extensions = ["ScopedTypeVariables", "NoMultiParamTypeClasses"]
+    --
+    -- Example value: @extensions = ["ScopedTypeVariables", "NoMultiParamTypeClasses"]@
   , extensions   :: [String]
 
     -- | The 'buildable' field in the package description.
