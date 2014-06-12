@@ -11,18 +11,18 @@ import           Test.Tasty.TH
 case_targets :: Assertion
 case_targets = do
   tgs <- runQuery (on localPkgDesc targets) "dist/setup-config"
-  assertEqual "target names" 
-    (sort 
-    [ Library 
+  assertEqual "target names"
+    (sort
+    [ Library
       [ "Distribution.Client.Dynamic"
       , "Distribution.Client.Dynamic.Query"
-      , "Distribution.Client.Dynamic.LocalBuildInfo" 
+      , "Distribution.Client.Dynamic.LocalBuildInfo"
       , "Distribution.Client.Dynamic.PackageDescription"
       ]
     , TestSuite "dynamic-cabal-tests" (Just "Main.hs")
     , TestSuite "doctests" (Just "doctests.hs")
-    ]) 
-    (sort $ map info tgs) 
+    ])
+    (sort $ map info tgs)
   assertEqual "source directories" (sort $ map sourceDirs tgs) $ sort $ map return ["src", "tests", "tests"]
   assertBool "ghc options" $ all (elem "-Wall" . ghcOptions)  tgs
   assertBool "no extensions" $ all (null . extensions) tgs
@@ -46,8 +46,8 @@ case_raw = do
 src :: IO String
 src=do
   setupConfig' <- canonicalizePath "dist/setup-config"
-  cv<-getCabalVersion setupConfig'
-  let optStr=if cv>=Version [1,15,0] []
+  cv <- getCabalVersion setupConfig'
+  let optStr = if cv >= Version [1,15,0] []
                then "       let opts=renderGhcOptions ((fst $ head $ readP_to_S  parseVersion  \"7.6.3\") :: Version) $ componentGhcOptions V.silent lbi b clbi \"dist/build\""
                else "       let opts=ghcOptions lbi b clbi \"dist/build\""
   return $ unlines [
@@ -59,7 +59,7 @@ src=do
     ,"import qualified Distribution.Verbosity as V"
     ,"import Data.Version (parseVersion)"
     ,"import Text.ParserCombinators.ReadP(readP_to_S)"
-    ,if cv>=Version [1,15,0] [] then "import Distribution.Simple.Program.GHC" else ""
+    ,if cv >= Version [1,15,0] [] then "import Distribution.Simple.Program.GHC" else ""
     ,"import Distribution.Simple.GHC"
     ,"import Distribution.Version"
     ,"import Control.Monad"
@@ -69,9 +69,9 @@ src=do
     ,"lbi<-liftM (read . Prelude.unlines . drop 1 . lines) $ Prelude.readFile \""++setupConfig' ++"\""
     ,"let pkg=localPkgDescr lbi"
     ,"r<-newIORef DM.empty"
-    ,"withComponentsLBI pkg lbi (\\c clbi->do"
+    ,(if cv >= Version [1,18,0] [] then "withAllComponentsInBuildOrder" else "withComponentsLBI") ++ " pkg lbi (\\c clbi->do"
     ,"       let b=foldComponent libBuildInfo buildInfo testBuildInfo benchmarkBuildInfo c"
-    ,optStr 
+    ,optStr
     ,"       let n=foldComponent (const \"\") exeName testName benchmarkName c"
     ,"       modifyIORef r (DM.insert n opts)"
     ,"       return ()"

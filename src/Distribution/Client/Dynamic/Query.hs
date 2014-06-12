@@ -12,7 +12,7 @@
 #endif
 
 -- | Functions for building queries on cabal's setup-config an evaluating them.
-module Distribution.Client.Dynamic.Query 
+module Distribution.Client.Dynamic.Query
   ( Selector(), selector
   , Query(), query
   , LocalBuildInfo()
@@ -30,7 +30,6 @@ import           Control.Applicative
 import           Control.Category
 import qualified Control.Exception as E
 import           Control.Monad
-import           Data.Dynamic
 import           Data.Version
 import           Data.Void
 import qualified DynFlags
@@ -45,9 +44,15 @@ import           System.FilePath
 import           System.IO.Error (isAlreadyExistsError)
 import           Text.ParserCombinators.ReadP
 
+#if __GLASGOW_HASKELL__ >= 708
+import           Data.Dynamic hiding (Typeable1)
+#else
+import           Data.Dynamic
+#endif
+
 #if __GLASGOW_HASKELL__ >= 707
 type Typeable1 (f :: * -> *) = Typeable f
-#endif 
+#endif
 
 -- | This is just a dummy type representing a LocalBuildInfo. You don't have to use
 -- this type, it is just used to tag queries and make them more type-safe.
@@ -85,7 +90,7 @@ selector :: (Version -> ExpG (i -> o)) -> Selector i o
 selector = Selector
 
 -- | A query is like a Selector, but it cannot be composed any futher using a Category instance.
--- It can have a Functor and Applicative instance though. 
+-- It can have a Functor and Applicative instance though.
 -- To execute a query, you only need to run GHC once.
 data Query s a = forall i. Typeable i => Query (Selector s i) (i -> a)
 
@@ -111,7 +116,7 @@ on s (Query sq f) = Query (sq . s) f
 getRunDirectory :: IO FilePath
 getRunDirectory = getTemporaryDirectory >>= go 0
   where go :: Integer -> FilePath -> IO FilePath
-        go !c dir = do 
+        go !c dir = do
           let cdir = dir </> "dynamic-cabal" <.> show c
           res <- E.try $ createDirectory cdir
           case res of
@@ -143,10 +148,10 @@ withTempWorkingDir act = do
   res <$ removeDirectoryRecursive tmp
 
 generateSource :: Selector LocalBuildInfo o -> String -> FilePath -> Version -> IO String
-generateSource (Selector s) modName setupConfig version = 
+generateSource (Selector s) modName setupConfig version =
   return $ flip generateModule modName $ do
-    getLBI <- addDecl (Ident "getLBI") $ 
-                   applyE fmap' (read' <>. unlines' <>. applyE drop' 1 <>. lines' :: ExpG (String -> LocalBuildInfo)) 
+    getLBI <- addDecl (Ident "getLBI") $
+                   applyE fmap' (read' <>. unlines' <>. applyE drop' 1 <>. lines' :: ExpG (String -> LocalBuildInfo))
                <>$ applyE readFile' (expr setupConfig)
     result <- addDecl (Ident "result") $ applyE fmap' (s version) <>$ expr getLBI
     return $ Just [exportFun result]
@@ -158,12 +163,12 @@ runQuery (Query s post) setupConfig = do
   version <- getCabalVersion setupConfig'
   src<-  generateSource s "DynamicCabalQuery" setupConfig' version
   runRawQuery' src setupConfig post
-  
+
 -- | Run a raw query, getting the full source from the first parameter
 -- the module must be DynamicCabalQuery and it must have a result declaration
 runRawQuery :: Typeable a => String -> FilePath -> IO a
 runRawQuery s setupConfig = runRawQuery' s setupConfig id
-  
+
 -- | Run a raw query, getting the full source from the first parameter.
 -- The module must be DynamicCabalQuery and it must have a result declaration.
 -- The third argument is a function to apply to the result of running the query.
@@ -179,6 +184,7 @@ runRawQuery' s setupConfig post = do
              { GHC.ghcLink = GHC.LinkInMemory
              , GHC.hscTarget = GHC.HscInterpreted
              , GHC.packageFlags = [DynFlags.ExposePackage $ "Cabal-" ++ showVersion version]
+             , GHC.ctxtStkDepth = 1000
              }
       dflags' <- GHC.getSessionDynFlags
 
@@ -188,4 +194,3 @@ runRawQuery' s setupConfig post = do
         void $ GHC.load GHC.LoadAllTargets
         GHC.setContext [GHC.IIDecl $ GHC.simpleImportDecl $ GHC.mkModuleName "DynamicCabalQuery"]
         GHC.dynCompileExpr "result" >>= maybe (fail "dynamic-cabal: runQuery: Result expression has wrong type") (MonadUtils.liftIO . fmap post) . fromDynamic
-        
