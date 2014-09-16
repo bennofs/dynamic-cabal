@@ -4,7 +4,6 @@ import qualified Data.Map as DM
 import           Data.Version
 import           Distribution.Client.Dynamic
 import           System.Directory
-import           Test.HUnit
 import           Test.Tasty.HUnit
 import           Test.Tasty.TH
 
