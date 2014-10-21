@@ -24,7 +24,7 @@ case_targets = do
     (sort $ map info tgs)
   assertEqual "source directories" (sort $ map sourceDirs tgs) $ sort $ map return ["src", "tests", "tests"]
   assertBool "ghc options" $ all (elem "-Wall" . ghcOptions)  tgs
-  assertBool "no extensions" $ all (null . extensions) tgs
+  assertBool "no extensions (except TH)" $ all (not . any ("TemplateHaskell" /=) . extensions) tgs
   assertBool  "everything buildable" $ all buildable tgs
   assertBool "no cpp options" $ all (null . cppOptions) tgs
 
