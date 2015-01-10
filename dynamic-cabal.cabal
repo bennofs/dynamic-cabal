@@ -1,5 +1,5 @@
 name:          dynamic-cabal
-version:       0.3.2
+version:       0.3.3
 license:       BSD3
 category:      Distribution 
 cabal-version: >= 1.10
@@ -61,6 +61,7 @@ test-suite dynamic-cabal-tests
     , directory
   ghc-options: -Wall
   default-language: Haskell2010
+  other-extensions: TemplateHaskell
 
 test-suite doctests
   type:    exitcode-stdio-1.0
