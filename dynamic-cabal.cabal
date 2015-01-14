@@ -63,7 +63,7 @@ test-suite dynamic-cabal-tests
     , containers
     , directory
     , filepath
-  ghc-options: -Wall -dynamic
+  ghc-options: -Wall
   default-language: Haskell2010
   other-extensions: TemplateHaskell
 
