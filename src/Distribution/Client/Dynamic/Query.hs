@@ -8,7 +8,8 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 #if __GLASGOW_HASKELL__ >= 707
 {-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE KindSignatures, TemplateHaskell #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE TemplateHaskell #-}
 #endif
 
 -- | Functions for building queries on cabal's setup-config an evaluating them.
@@ -64,6 +65,7 @@ type Typeable1 (f :: * -> *) = Typeable f
 -- this type, it is just used to tag queries and make them more type-safe.
 data LocalBuildInfo = LocalBuildInfo Void deriving (Typeable, Read)
 
+-- | Dummy instance
 instance Binary LocalBuildInfo where
   get = undefined
   put = undefined
