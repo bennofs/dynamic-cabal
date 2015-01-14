@@ -40,6 +40,9 @@ library
     , haskell-src-exts
     , void
     , data-default
+    , template-haskell
+    , bytestring
+    , binary
   exposed-modules:
       Distribution.Client.Dynamic
       Distribution.Client.Dynamic.Query
@@ -51,15 +54,16 @@ test-suite dynamic-cabal-tests
   main-is: Main.hs
   hs-source-dirs: tests
   build-depends:
-      base
+    base
     , dynamic-cabal
     , tasty
     , tasty-hunit
     , HUnit
     , tasty-th
     , containers
-    , directory
-  ghc-options: -Wall
+    , directory,
+    filepath >=1.3 && <1.4
+  ghc-options: -Wall -dynamic
   default-language: Haskell2010
   other-extensions: TemplateHaskell
 
