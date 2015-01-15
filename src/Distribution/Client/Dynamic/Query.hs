@@ -40,7 +40,7 @@ import qualified DynFlags
 import qualified GHC
 import qualified GHC.Paths
 import           Language.Haskell.Exts.Syntax
-import           Language.Haskell.Generate
+import           Language.Haskell.Generate hiding (tail', dropWhile')
 import           Language.Haskell.Generate.TH
 import           Language.Haskell.TH.Syntax
 import qualified MonadUtils
@@ -177,7 +177,7 @@ generateSource (Selector s) modName setupConfig version =
                            <>$ applyE Language.Haskell.Generate.readFile' (expr setupConfig)
                 else -- read via Binary Instance
                   addDecl (Ident "getLBI") $
-                               applyE fmap' (decode' <>. Distribution.Client.Dynamic.Query.tail' <>. applyE Distribution.Client.Dynamic.Query.dropWhile' (applyE notequal' (expr '\n')) :: ExpG (Data.ByteString.Lazy.ByteString -> LocalBuildInfo) )
+                               applyE fmap' (decode' <>. tail' <>. applyE dropWhile' (applyE notequal' (expr '\n')) :: ExpG (Data.ByteString.Lazy.ByteString -> LocalBuildInfo) )
                            <>$ applyE Distribution.Client.Dynamic.Query.readFile' (expr setupConfig)
     result <- addDecl (Ident "result") $ applyE fmap' (s version) <>$ expr getLBI
     return $ Just [exportFun result]
