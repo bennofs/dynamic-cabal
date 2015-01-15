@@ -9,6 +9,7 @@
 #if __GLASGOW_HASKELL__ >= 707
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE TemplateHaskell #-}
 #endif
 
 -- | Functions for building queries on cabal's setup-config an evaluating them.
@@ -32,17 +33,23 @@ import qualified Control.Exception as E
 import           Control.Monad
 import           Data.Version
 import           Data.Void
+import           Data.Binary
+import qualified Data.ByteString.Lazy
+import qualified Data.ByteString.Lazy.Char8
 import qualified DynFlags
 import qualified GHC
 import qualified GHC.Paths
 import           Language.Haskell.Exts.Syntax
-import           Language.Haskell.Generate
+import           Language.Haskell.Generate hiding (tail', dropWhile')
+import           Language.Haskell.Generate.TH
+import           Language.Haskell.TH.Syntax
 import qualified MonadUtils
 import           Prelude hiding (id, (.))
 import           System.Directory
 import           System.FilePath
 import           System.IO.Error (isAlreadyExistsError)
 import           Text.ParserCombinators.ReadP
+
 
 #if __GLASGOW_HASKELL__ >= 708
 import           Data.Dynamic hiding (Typeable1)
@@ -57,6 +64,11 @@ type Typeable1 (f :: * -> *) = Typeable f
 -- | This is just a dummy type representing a LocalBuildInfo. You don't have to use
 -- this type, it is just used to tag queries and make them more type-safe.
 data LocalBuildInfo = LocalBuildInfo Void deriving (Typeable, Read)
+
+-- | Dummy instance
+instance Binary LocalBuildInfo where
+  get = undefined
+  put = undefined
 
 -- | A selector is a generator for a function of type i -> o.
 newtype Selector i o = Selector (Version -> ExpG (i -> o))
@@ -147,14 +159,30 @@ withTempWorkingDir act = do
   setCurrentDirectory pwd
   res <$ removeDirectoryRecursive tmp
 
+-- | Declare useful functions for binary reading
+fmap concat $ mapM declareFunction [
+  mkName "Data.ByteString.Lazy.readFile"
+  , mkName "Data.ByteString.Lazy.Char8.dropWhile"
+  , mkName "Data.ByteString.Lazy.tail"
+  , mkName "Data.Binary.decode"
+  ]
+
 generateSource :: Selector LocalBuildInfo o -> String -> FilePath -> Version -> IO String
-generateSource (Selector s) modName setupConfig version =
+generateSource (Selector s) modName setupConfig version = 
   return $ flip generateModule modName $ do
-    getLBI <- addDecl (Ident "getLBI") $
-                   applyE fmap' (read' <>. unlines' <>. applyE drop' 1 <>. lines' :: ExpG (String -> LocalBuildInfo))
-               <>$ applyE readFile' (expr setupConfig)
+    getLBI <- if version < Version [1,22,0] []
+                then -- read via Read instance
+                  addDecl (Ident "getLBI") $
+                               applyE fmap' (read' <>. unlines' <>. applyE drop' 1 <>. lines' :: ExpG (String -> LocalBuildInfo))
+                           <>$ applyE Language.Haskell.Generate.readFile' (expr setupConfig)
+                else -- read via Binary Instance
+                  addDecl (Ident "getLBI") $
+                               applyE fmap' (decode' <>. tail' <>. applyE dropWhile' (applyE notequal' (expr '\n')) :: ExpG (Data.ByteString.Lazy.ByteString -> LocalBuildInfo) )
+                           <>$ applyE Distribution.Client.Dynamic.Query.readFile' (expr setupConfig)
     result <- addDecl (Ident "result") $ applyE fmap' (s version) <>$ expr getLBI
     return $ Just [exportFun result]
+
+
 
 -- | Run a query. This will generate the source code for the query and then invoke GHC to run it.
 runQuery :: Query LocalBuildInfo a -> FilePath -> IO a

@@ -4,6 +4,7 @@ import qualified Data.Map as DM
 import           Data.Version
 import           Distribution.Client.Dynamic
 import           System.Directory
+import           System.FilePath
 import           Test.Tasty.HUnit
 import           Test.Tasty.TH
 
@@ -46,13 +47,16 @@ src :: IO String
 src=do
   setupConfig' <- canonicalizePath "dist/setup-config"
   cv <- getCabalVersion setupConfig'
-  let optStr = if cv >= Version [1,15,0] []
-               then "       let opts=renderGhcOptions ((fst $ head $ readP_to_S  parseVersion  \"7.6.3\") :: Version) $ componentGhcOptions V.silent lbi b clbi \"dist/build\""
-               else "       let opts=ghcOptions lbi b clbi \"dist/build\""
+  let optStr1 | cv >= Version [1,19,0] [] ="(compiler,_ ,_)<-configure V.normal Nothing Nothing defaultProgramDb"
+              | otherwise =""
+  let optStr | cv >= Version [1,19,0] [] ="renderGhcOptions compiler $ componentGhcOptions V.silent lbi b clbi \"dist/build\""
+             | cv >= Version [1,15,0] [] ="renderGhcOptions ((fst $ head $ readP_to_S  parseVersion  \"7.6.3\") :: Version) $ componentGhcOptions V.silent lbi b clbi \"dist/build\""
+             | otherwise                 ="ghcOptions lbi b clbi fp"
   return $ unlines [
     "module DynamicCabalQuery where"
     ,"import Distribution.PackageDescription"
     ,"import Distribution.Simple.LocalBuildInfo"
+    ,"import Distribution.Simple.Configure (maybeGetPersistBuildConfig)"
     ,"import Data.IORef"
     ,"import qualified Data.Map as DM"
     ,"import qualified Distribution.Verbosity as V"
@@ -60,17 +64,19 @@ src=do
     ,"import Text.ParserCombinators.ReadP(readP_to_S)"
     ,if cv >= Version [1,15,0] [] then "import Distribution.Simple.Program.GHC" else ""
     ,"import Distribution.Simple.GHC"
+    ,if cv >= Version [1,19,0] [] then "import Distribution.Simple.Program.Db(defaultProgramDb)" else ""
     ,"import Distribution.Version"
     ,"import Control.Monad"
     ,""
     ,"result :: IO (DM.Map String [String])"
     ,"result=do"
-    ,"lbi<-liftM (read . Prelude.unlines . drop 1 . lines) $ Prelude.readFile \""++setupConfig' ++"\""
+    ,"Just lbi<-maybeGetPersistBuildConfig \""++takeDirectory setupConfig' ++"\""
     ,"let pkg=localPkgDescr lbi"
     ,"r<-newIORef DM.empty"
+    , optStr1
     ,(if cv >= Version [1,18,0] [] then "withAllComponentsInBuildOrder" else "withComponentsLBI") ++ " pkg lbi (\\c clbi->do"
     ,"       let b=foldComponent libBuildInfo buildInfo testBuildInfo benchmarkBuildInfo c"
-    ,optStr
+    ,"       let opts=" ++ optStr
     ,"       let n=foldComponent (const \"\") exeName testName benchmarkName c"
     ,"       modifyIORef r (DM.insert n opts)"
     ,"       return ()"
