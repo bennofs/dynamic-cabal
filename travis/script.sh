@@ -22,7 +22,7 @@ function step_suppress {
 
 step "Configuring project" << 'EOF'
   tmp=$(mktemp)
-  cabal-$CABALVER configure --enable-tests --enable-benchmarks --enable-executable-dynamic -v2 --ghc-options="-Wall -Werror" &> $tmp || (
+  cabal-$CABALVER configure --enable-tests --enable-benchmarks $CABALFLAGS -v2 --ghc-options="-Wall -Werror" &> $tmp || (
     cat $tmp
     exit 1
   )
@@ -52,5 +52,5 @@ step_suppress "Checking source distribution" << 'EOF'
   else
     echo "expected '$SRC_TGZ' not found"
     exit 1
-  fi    
+  fi
 EOF
