@@ -47,7 +47,7 @@ generateBuildModule verbosity pkg lbi flags = do
       modifyIORef depsVar $ appendDL . singletonDL $ depsEntry (buildInfo exe) exelbi suitelbi
     deps <- fmap ($ []) $ readIORef depsVar
 
-    rewriteFile (dir </> (map fixchar $ "Build_" ++ testName suite ++ ".hs")) $ unlines 
+    rewriteFile (dir </> (map fixchar $ "Build_" ++ testName suite ++ ".hs")) $ unlines
       [ "module Build_" ++ map fixchar (testName suite) ++ " where"
       , "getDistDir :: FilePath"
       , "getDistDir = " ++ show distDir
