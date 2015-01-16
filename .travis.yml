@@ -14,7 +14,7 @@ before_install:
  # The cabal-install packages from hvr's ppa are outdated for cabal 1.22
  - |
    if [ "$CABALVER" = "1.22" ]; then
-     cabal-$CABALVER install cabal-install --constraint="Cabal ==$CABALVER.*" --constraint="cabal-install ==$CABALVER.*"
+     cabal-$CABALVER install cabal-install $CABALFLAGS --constraint "mtl < 2.2" --constraint="Cabal ==$CABALVER.*" --constraint="cabal-install ==$CABALVER.*"
    else
      export PATH=/opt/cabal/$CABALVER/bin:$PATH
    fi
