@@ -9,11 +9,15 @@ before_install:
  - sudo apt-get update
  - sudo apt-get install cabal-install-$CABALVER ghc-$GHCVER hlint
  - cabal-$CABALVER update
- - export PATH=/opt/ghc/$GHCVER/bin:~/.cabal/bin:/opt/cabal/$CABALVER/bin:$PATH
+ - export PATH=/opt/ghc/$GHCVER/bin:~/.cabal/bin:$PATH
 
  # The cabal-install packages from hvr's ppa are outdated for cabal 1.22
- - [ "$CABALVER" -eq "1.22" ] && cabal-$CABALVER install cabal-install --constraint="Cabal ==$CABALVER.* cabal-install=$CABALVER.*"
-
+ - |
+   if [ "$CABALVER" = "1.22" ]; then
+     cabal-$CABALVER install cabal-install --constraint="Cabal ==$CABALVER.* cabal-install=$CABALVER.*"
+   else
+     export PATH=/opt/cabal/$CABALVER/bin:$PATH
+   fi
  - cabal install happy $CABALFLAGS -j
 
 install:
