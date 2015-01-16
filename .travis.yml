@@ -13,7 +13,7 @@ before_install:
  - export PATH=/opt/ghc/$GHCVER/bin:~/.cabal/bin:$PATH
 
 install:
- - cabal-$CABALVER install --only-dependencies --enable-tests --enable-benchmarks -j
+ - cabal-$CABALVER install --only-dependencies --enable-tests --enable-shared --enable-benchmarks -j
 
 script:
  - travis/script.sh
