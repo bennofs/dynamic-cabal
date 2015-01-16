@@ -35,6 +35,7 @@ step "Building project" << EOF
 EOF
 
 step "Running tests" << EOF
+  head -n1 dist/setup-config
   cabal-$CABALVER test
 EOF
 

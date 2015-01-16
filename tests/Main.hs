@@ -50,7 +50,7 @@ src = do
               | otherwise =""
   let optStr | cv >= Version [1,19,0] [] ="renderGhcOptions compiler $ componentGhcOptions V.silent lbi b clbi " ++ show distPrefix
              | cv >= Version [1,15,0] [] ="renderGhcOptions ((fst $ head $ readP_to_S  parseVersion " ++ show Config.cProjectVersion ++ ") :: Version) $ componentGhcOptions V.silent lbi b clbi \"dist/build\""
-             | otherwise                 ="ghcOptions lbi b clbi fp"
+             | otherwise                 ="ghcOptions lbi b clbi \"dist/build\""
   return $ unlines [
     "module DynamicCabalQuery where"
     ,"import Distribution.PackageDescription"

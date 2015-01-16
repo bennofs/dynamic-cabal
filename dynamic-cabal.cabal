@@ -15,8 +15,8 @@ description:
   This library allows you to extract information from cabal files without depending on the Cabal library. Since
   GHC currently depends on Cabal, it's difficult to directly use Cabal if you also like to use the GHC API. This package
   solves that problem by using the GHC API itself to interface with Cabal, which means that it can use whatever Cabal version
-  the user has installed, at run time (the version is not fixed at compile time). For a short example, see 
-  https://github.com/bennofs/dynamic-cabal.
+  the user has installed, at run time (the version is not fixed at compile time). For a short tutorial, see
+  <https://github.com/bennofs/dynamic-cabal>.
 build-type:    Custom
 extra-source-files:
   .ghci
