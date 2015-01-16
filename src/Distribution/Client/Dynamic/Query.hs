@@ -147,12 +147,16 @@ withTempWorkingDir act = do
   setCurrentDirectory pwd
   res <$ removeDirectoryRecursive tmp
 
+getConfigStateFile :: ExpG (FilePath -> IO LocalBuildInfo)
+getConfigStateFile = useValue "Distribution.Simple.Configure" $ Ident "getConfigStateFile"
+
 generateSource :: Selector LocalBuildInfo o -> String -> FilePath -> Version -> IO String
 generateSource (Selector s) modName setupConfig version =
   return $ flip generateModule modName $ do
     getLBI <- addDecl (Ident "getLBI") $
-                   applyE fmap' (read' <>. unlines' <>. applyE drop' 1 <>. lines' :: ExpG (String -> LocalBuildInfo))
-               <>$ applyE readFile' (expr setupConfig)
+      if version < Version [1,21] []
+      then applyE fmap' (read' <>. unlines' <>. applyE drop' 1 <>. lines' :: ExpG (String -> LocalBuildInfo)) <>$ applyE readFile' (expr setupConfig)
+      else getConfigStateFile <>$ expr setupConfig
     result <- addDecl (Ident "result") $ applyE fmap' (s version) <>$ expr getLBI
     return $ Just [exportFun result]
 

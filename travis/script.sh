@@ -22,7 +22,7 @@ function step_suppress {
 
 step "Configuring project" << 'EOF'
   tmp=$(mktemp)
-  cabal-$CABALVER configure --enable-tests --enable-benchmarks -v2 --ghc-options="-Wall -Werror" &> $tmp || (
+  cabal-$CABALVER configure --enable-tests --enable-benchmarks --enable-executable-dynamic -v2 --ghc-options="-Wall -Werror" &> $tmp || (
     cat $tmp
     exit 1
   )

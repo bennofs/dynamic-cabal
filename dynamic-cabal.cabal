@@ -1,7 +1,7 @@
 name:          dynamic-cabal
-version:       0.3.3
+version:       0.3.4
 license:       BSD3
-category:      Distribution 
+category:      Distribution
 cabal-version: >= 1.10
 license-file:  LICENSE
 author:        Benno Fünfstück
@@ -10,8 +10,13 @@ stability:     experimental
 homepage:      http://github.com/bennofs/dynamic-cabal/
 bug-reports:   http://github.com/bennofs/dynamic-cabal/issues
 copyright:     Copyright (C) 2013 Benno Fünfstück
-synopsis:      dynamic-cabal
-description:   dynamic-cabal
+synopsis:      Access the functions from the Cabal library without depending on it
+description:
+  This library allows you to extract information from cabal files without depending on the Cabal library. Since
+  GHC currently depends on Cabal, it's difficult to directly use Cabal if you also like to use the GHC API. This package
+  solves that problem by using the GHC API itself to interface with Cabal, which means that it can use whatever Cabal version
+  the user has installed, at run time (the version is not fixed at compile time). For a short example, see 
+  https://github.com/bennofs/dynamic-cabal.
 build-type:    Custom
 extra-source-files:
   .ghci
@@ -45,6 +50,7 @@ library
       Distribution.Client.Dynamic.Query
       Distribution.Client.Dynamic.LocalBuildInfo
       Distribution.Client.Dynamic.PackageDescription
+  other-extensions: TemplateHaskell
 
 test-suite dynamic-cabal-tests
   type:    exitcode-stdio-1.0
@@ -52,6 +58,7 @@ test-suite dynamic-cabal-tests
   hs-source-dirs: tests
   build-depends:
       base
+    , ghc
     , dynamic-cabal
     , tasty
     , tasty-hunit
