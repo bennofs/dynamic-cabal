@@ -12,7 +12,13 @@ before_install:
  - cabal-$CABALVER update
  - export PATH=/opt/ghc/$GHCVER/bin:~/.cabal/bin:$PATH
 
- - export PATH=/opt/cabal/$CABALVER/bin:$PATH
+ # The cabal-install packages from hvr's ppa are outdated for cabal 1.22
+ - |
+   if [ "$CABALVER" = "1.22" ]; then
+     cabal-$CABALVER install cabal-install $CABALFLAGS --constraint="Cabal ==$CABALVER.*" --constraint="cabal-install ==$CABALVER.*"
+   else
+     export PATH=/opt/cabal/$CABALVER/bin:$PATH
+   fi
  - cabal install happy $CABALFLAGS -j
 
 install:
