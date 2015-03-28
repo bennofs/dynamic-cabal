@@ -2,7 +2,7 @@ env:
  - GHCVER=7.4.2 CABALVER=1.16 CABALFLAGS=""
  - GHCVER=7.6.3 CABALVER=1.18 CABALFLAGS=""
  - GHCVER=7.8.3 CABALVER=1.20 CABALFLAGS="--enable-shared --enable-executable-dynamic"
- - GHCVER=7.8.4 CABALVER=1.22 CABALFLAGS="--enable-shared --enable-executable-dynamic"
+ - GHCVER=7.8.4 CABALVER=1.22 CABALFLAGS="--enable-shared --enable-executable-dynamic --constraint mtl<2.2"
  - GHCVER=7.10.1 CABALVER=1.22 CABALFLAGS="--enable-shared --enable-executable-dynamic"
 
 before_install:
