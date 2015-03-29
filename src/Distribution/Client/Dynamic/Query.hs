@@ -1,7 +1,6 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE CPP #-}
-{-# LANGUAGE OverlappingInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -184,10 +183,16 @@ runRawQuery' s setupConfig post = do
     writeFile "DynamicCabalQuery.hs" s
     GHC.runGhc (Just GHC.Paths.libdir) $ do
       dflags <- GHC.getSessionDynFlags
+      let cabalPkg = "Cabal-" ++ showVersion version
+#if __GLASGOW_HASKELL__ >= 709
+      let cabalFlag = DynFlags.ExposePackage (DynFlags.PackageArg cabalPkg) (DynFlags.ModRenaming True [])
+#else
+      let cabalFlag = DynFlags.ExposePackage cabalPkg
+#endif
       void $ GHC.setSessionDynFlags $ dflags
              { GHC.ghcLink = GHC.LinkInMemory
              , GHC.hscTarget = GHC.HscInterpreted
-             , GHC.packageFlags = [DynFlags.ExposePackage $ "Cabal-" ++ showVersion version]
+             , GHC.packageFlags = [cabalFlag]
              , GHC.ctxtStkDepth = 1000
              }
       dflags' <- GHC.getSessionDynFlags
