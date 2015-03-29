@@ -21,6 +21,7 @@ import           Data.Version
 import           Distribution.Client.Dynamic.Query
 import           Language.Haskell.Exts.Syntax
 import           Language.Haskell.Generate
+import           Prelude
 
 -- Type tags that we can use to make sure we don't accidently generate code that
 -- use a function for a PackageDescription on a BuildInfo value.
